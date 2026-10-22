@@ -98,6 +98,19 @@ details.tp-sec>summary{cursor:pointer;list-style:none} details.tp-sec>summary::b
 #raftSeg button.on,#supEditSeg button.on,#spMode button.on{background:var(--accent);color:var(--on-accent)}
 .toolbar button.on#btnPos{background:var(--accent);color:var(--on-accent)}
 .sp-block{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.layer-box{position:absolute;right:8px;top:38px;bottom:52px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:auto}
+.layer-box[hidden]{display:none}
+.layer-box input[type=range]{writing-mode:vertical-lr;direction:rtl;flex:1;width:22px;accent-color:#ff9f1c;cursor:ns-resize}
+.layer-val{font:600 11px var(--f-mono);background:rgba(20,24,28,.82);color:#fff;padding:3px 7px;border-radius:6px;white-space:nowrap}
+.layer-all{border:0;border-radius:6px;background:rgba(20,24,28,.82);color:#fff;font:600 11px var(--f-mono);padding:3px 8px;cursor:pointer}
+.layer-all[hidden]{display:none}
+#latSeg button.on{background:var(--accent);color:var(--on-accent)}
+.opt-box{display:flex;flex-direction:column;gap:6px}
+.opt-rows{display:flex;flex-direction:column;gap:5px}
+.opt-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row.opt .r{color:var(--ok)}
+.pop-row.axes .inp{flex:1;min-width:0}
+.tp-sec .check,.opt-box .check{justify-content:flex-start;align-self:flex-start}
 .fdm-tag{font:700 11px var(--f-mono);letter-spacing:.08em;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:2px 6px}
 .field .cap{font-size:11.5px;line-height:1.35;color:var(--muted);margin-top:2px}
 .hint.how{margin:0 0 4px;font-size:12.5px}
@@ -374,8 +387,15 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
             <input type="range" id="scaleRange" min="10" max="400" step="1" aria-label="Масштаб, %">
             <div class="pop-row"><span class="inp"><input type="number" id="scaleNum" min="1" max="10000" step="0.1" aria-label="Масштаб, %"><em>%</em></span>
               <button type="button" data-scale="50">50</button><button type="button" data-scale="100">100</button><button type="button" data-scale="200">200</button></div>
+            <label class="check"><input type="checkbox" id="scaleLock" checked>Пропорционально</label>
+            <div class="pop-row axes"><span class="inp"><input type="number" id="sX" min="0.1" step="0.1" aria-label="Размер X"><em>X мм</em></span><span class="inp"><input type="number" id="sY" min="0.1" step="0.1" aria-label="Размер Y"><em>Y мм</em></span><span class="inp"><input type="number" id="sZ" min="0.1" step="0.1" aria-label="Размер Z"><em>Z мм</em></span></div>
             <button type="button" class="pop-link" id="scaleFit">Вписать в стол принтера</button>
             <small class="pop-info" id="scaleDims"></small>
+          </div>
+          <div class="layer-box" id="layerBox" hidden>
+            <span class="layer-val" id="layerVal"></span>
+            <input type="range" id="layerRange" min="1" max="100" step="1" aria-label="Просмотр по слоям">
+            <button type="button" class="layer-all" id="layerAll" hidden title="Показать всю модель">все</button>
           </div>
           <div class="drop-hint" id="dropHint" hidden>Отпустите файлы</div>
           <div class="busy" id="busy" hidden><span id="busyText">Считаю…</span></div>
@@ -389,6 +409,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
             <label class="field"><span class="lbl">X</span><span class="inp"><input id="dimX" type="number" min="0.1" step="0.1"><em>мм</em></span></label>
             <label class="field"><span class="lbl">Y</span><span class="inp"><input id="dimY" type="number" min="0.1" step="0.1"><em>мм</em></span></label>
             <label class="field"><span class="lbl">Z</span><span class="inp"><input id="dimZ" type="number" min="0.1" step="0.1"><em>мм</em></span></label>
+            <label class="check" style="align-self:end"><input type="checkbox" id="scaleLock2" checked>Пропорционально</label>
           </div>
         </div>
       </div>
@@ -416,6 +437,8 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           </div>
           <div class="rot-row"><small class="pop-info" id="supInfo"></small><button type="button" class="pop-link" id="supClear">Убрать</button></div>
         </div>
+        <div class="tp-sec"><span class="tp-l">Перекрытия</span><div class="seg" id="latSeg"></div><small class="cap" id="latNote"></small>
+          <label class="check"><input type="checkbox" id="stabChk" checked>Стабилизирующие опоры для тяжёлых и наклонённых деталей</label><small class="cap" id="stabNote"></small></div>
         <div class="tp-sec"><span class="tp-l">Плот</span><div class="seg" id="raftSeg"></div><small class="cap" id="raftNote"></small></div>
         <div class="tp-sec"><span class="tp-l">Острова</span><small class="cap" id="islInfo"></small>
           <div class="rot-row"><button type="button" id="islFind">Проверить острова</button>
@@ -524,7 +547,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
     </div>
   </section>
 
-  <section class="card" id="secExtra" data-block="extras">
+  <section class="card adv" id="secExtra" data-block="extras">
     <div class="card-h"><h2>Доп. услуги</h2></div>
     <div class="card-b">
       <div class="grid">
@@ -538,7 +561,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
     </div>
   </section>
 
-  <section class="card" id="secTime" data-block="schedule">
+  <section class="card adv" id="secTime" data-block="schedule">
     <div class="card-h"><h2>Сроки</h2></div>
     <div class="card-b">
       <div class="grid">
@@ -560,11 +583,18 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <div class="quick" id="mkPresets"></div><small class="cap mk-limit" id="mkLimit"></small></div>
         <div class="field adv" data-block="discount"><label class="lbl" for="adj">Скидка − / срочность +</label><span class="inp"><input id="adj" type="number" min="-90" max="300" step="5" data-bind="money.adjust"><em>%</em></span>
           <div class="quick" data-quick="money.adjust"><button type="button" data-v="-10">−10</button><button type="button" data-v="0">0</button><button type="button" data-v="50">+50</button></div></div>
-        <label class="field" data-block="discount"><span class="lbl">Мин. заказ</span><span class="inp"><input type="number" min="0" step="50" data-bind="money.minOrder"><em>₽</em></span></label>
+        <label class="field adv" data-block="discount"><span class="lbl">Мин. заказ</span><span class="inp"><input type="number" min="0" step="50" data-bind="money.minOrder"><em>₽</em></span></label>
         <div class="field" data-block="tax"><label class="lbl" for="tx" title="Цена = сумма ÷ (1 − ставка), чтобы после налога осталась нужная сумма">Налог с выручки</label><span class="inp"><input id="tx" type="number" min="0" max="50" step="0.5" data-bind="money.taxRev"><em>%</em></span>
           <div class="quick" data-quick="money.taxRev"><button type="button" data-v="0">0</button><button type="button" data-v="4">4</button><button type="button" data-v="6">6</button></div></div>
         <div class="field" data-block="tax"><label class="lbl" for="vat">НДС сверху</label><span class="inp"><input id="vat" type="number" min="0" max="30" step="1" data-bind="money.vat"><em>%</em></span>
           <div class="quick" data-quick="money.vat"><button type="button" data-v="0">0</button><button type="button" data-v="5">5</button><button type="button" data-v="22">22</button></div></div>
+      </div>
+      <div class="adv opt-box" data-block="discount">
+        <p class="sub">Скидки за опт</p>
+        <label class="check"><input type="checkbox" data-bind="money.optOn">Скидка по общему количеству штук в заказе</label>
+        <div id="optRows" class="opt-rows"></div>
+        <button type="button" class="pop-link" id="optAdd">+ Добавить порог</button>
+        <small class="cap">Берётся самый большой порог, до которого дотянул заказ. Видно в «Цене за штуку при тираже» и в тексте КП. В «Расширенном» скидка — не больше допуска менеджера.</small>
       </div>
       <details class="pro mkd"><summary class="sub">Кнопки типов клиента</summary><div class="mkedit" id="mkEdit"></div></details>
       <div class="pro grid">
@@ -843,12 +873,13 @@ const PROFILE_FIXES = { pla:{ minLayer:[6,4] }, plam:{ minLayer:[6,4] }, fuse1:{
 const DEF_SLICER = { preset:'standard', nozzle:0.6, layer:0.3, walls:2, top:5, bottom:3, infill:15, supports:'auto', supportType:'tree', brim:false };
 const DEF_SLA = { preset:'draft', layer:0.1, supports:'auto', density:'medium', tilt:0, hollow:false, wall:2.5, washMin:20, washCost:120 };
 const DEF_SLS = { layer:0.11, packing:10, unpackMin:40 };
-const DEF_PART   = { name:'Стакан-корпус', qty:1, perPlate:0, postMin:3, inserts:0, insertPrice:12, paint:0 };
+const DEF_PART   = { name:'Стакан-корпус', qty:1, perPlate:0, postMin:3, inserts:0, insertPrice:12, paint:0, scaleLock:true };
 const DEF_MONEY  = { markup:100, adjust:0, minOrder:500, taxRev:0, vat:22, rate:600, setupMin:15, plateMin:5, cadH:0, cadRate:1500,
                      packaging:0, kwh:7.5, risk:5, waste:5, printers:1, hoursPerDay:20,
                      twoRate:false, kwhNight:3.5, nightFrom:23, nightTo:7, rushPct:30, chamber:false,
                      deadline:'', start:'', busyUntil:'',
-                     presets:[{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }], mgrTol:25, baseMarkup:null };
+                     presets:[{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }], mgrTol:25, baseMarkup:null,
+                     optOn:true, opt:[{ q:10, d:5 }, { q:50, d:10 }, { q:100, d:15 }] };
 const PRESETS = {
   fdm: {
     draft:    { name:'Черновой',  spec:'0.28 · 10%', set:n => ({ layer:n>=0.6?0.4:0.28, walls:2, top:4, bottom:3, infill:10 }) },
@@ -936,7 +967,8 @@ function loadManualResin(){
 function loadSup(){
   const s = store.get('sup', {}) || {};
   return { cfg: { fdm: { ...((s.cfg || {}).fdm || {}) }, resin: { ...((s.cfg || {}).resin || {}) } },
-           raft: { fdm: 'none', resin: 'std', ...(s.raft || {}) }, lift: +s.lift > 0 ? +s.lift : 5 };
+           raft: { fdm: 'none', resin: 'std', ...(s.raft || {}) }, lift: +s.lift > 0 ? +s.lift : 5,
+           lattice: ['none','braces','scaffold'].includes(s.lattice) ? s.lattice : 'braces', stab: s.stab !== false };
 }
 const savedCal = store.get('massCal', 1);
 const savedTech = store.get('tech', 'fdm');
@@ -1766,7 +1798,12 @@ function orderCost(items, m){
   const b = { mat:sum('mat'), mach:sum('mach'), energy:sum('energy'), labor:sum('labor') + setupH*m.rate, extra:sum('extra') + fixedExtra, risk:sum('risk') };
   const cost = b.mat + b.mach + b.energy + b.labor + b.extra + b.risk;
   const rush = plan.mode === 'rush' ? (+m.rushPct || 0)/100 : 0;
-  const byMarkup = cost*(1 + m.markup/100)*(1 + adjust/100)*(1 + rush);
+  // скидка за опт — по общему числу штук в заказе
+  const totQty = lines.reduce((s, l) => s + l.c.qty, 0);
+  const optT = B.discount && m.optOn ? (m.opt || []).filter(t => +t.q > 0 && totQty >= +t.q).sort((a, b) => b.q - a.q)[0] : null;
+  const optD = optT ? Math.min(90, Math.max(0, +optT.d || 0))/100 : 0;
+  const preOpt = cost*(1 + m.markup/100)*(1 + adjust/100)*(1 + rush);
+  const byMarkup = preOpt*(1 - optD);
   const minApplied = byMarkup < minOrder;
   const net = Math.max(byMarkup, minOrder);
   const t = B.tax ? Math.min(0.9, Math.max(0, m.taxRev/100)) : 0;
@@ -1776,7 +1813,7 @@ function orderCost(items, m){
   const days = Math.max(1, Math.ceil(machineH/(Math.max(1, m.printers)*Math.max(1, m.hoursPerDay))) + Math.ceil((postH + setupH + sum('plateLabH'))/8 - 0.25));
   const det = { setupH, cad: B.extras ? m.cadH*m.cadRate : 0, pack: B.extras ? +m.packaging || 0 : 0, printH:sum('printH'), warmH:sum('warmH'), chamberH:sum('chamberH'), kwhUsed:sum('kwhUsed'),
     plateLabH:sum('plateLabH'), postH:sum('postLabH'), inserts:sum('inserts'), paint:sum('paint'), riskBase:sum('riskBase'), night, kwhEff, adjust, rush, t };
-  return { det, plan, rush, lines, b, cost, byMarkup, net, minApplied, taxRev: noVat - net, vatAmt: client - noVat, client, profit: net - cost,
+  return { det, plan, rush, optD, optQ: optT ? +optT.q : 0, optAmt: preOpt*optD, lines, b, cost, byMarkup, net, minApplied, taxRev: noVat - net, vatAmt: client - noVat, client, profit: net - cost,
            margin: net > 0 ? (net - cost)/net*100 : 0, machineH, gramsNet: sum('gramsNet'), grams: sum('gramsTot'), plates: sum('plates'), qty: sum('qty'), days,
            techs: [...new Set(lines.map(l => l.c.tech))] };
 }
@@ -1858,7 +1895,7 @@ function initViewer(){
     const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
     if (ptrs.size === 1){
       cam.theta -= (e.clientX-prev.x)*0.008;
-      cam.phi = Math.min(Math.PI/2-0.02, Math.max(0.05, cam.phi - (e.clientY-prev.y)*0.008));
+      cam.phi = Math.min(Math.PI-0.02, Math.max(0.02, cam.phi - (e.clientY-prev.y)*0.008)); // полный оборот: можно заглянуть и под стол
     } else if (ptrs.size === 2){
       const [a,b] = [...ptrs.values()]; const d = Math.hypot(a.x-b.x, a.y-b.y);
       if (pinch) cam.r = Math.min(8000, Math.max(20, cam.r * pinch/d)); pinch = d;
@@ -2165,7 +2202,8 @@ async function loadGcode(f, base){
    Гибрид: шаг и толщина подбираются по месту — пологие склоны лёгкими, потолки средними,
    высокие опоры толще и со связями, опоры на детали — тонкие, чтобы не оставлять следов.
    ====================================================================== */
-const SUP_NAMES = { light:'Лёгкие', medium:'Средние', heavy:'Сложные', hybrid:'Гибридные', islands:'Только острова' };
+const SUP_NAMES = { light:'Лёгкие', medium:'Средние', heavy:'Сложные', hybrid:'Гибридные', islands:'Только острова', stab:'Стабилизирующие' };
+const LATTICE = { none:{ l:'Нет', d:'Отдельные столбики без перемычек — меньше материала, легче снимать' }, braces:{ l:'Связи', d:'Зигзаг-перемычки у сложных и высоких опор' }, scaffold:{ l:'Леса', d:'Каждая опора связана с соседями горизонтальными балками и диагоналями — жёсткая решётка, как строительные леса' } };
 const SUP_DEF = {
   // sp — шаг опор, мм; r — радиус ствола; tip — радиус касания; tipL — длина касания; thr — угол нависания от вертикали;
   // brace — связи между опорами через столько мм высоты (0 — без связей); pad — радиус подошвы
@@ -2208,7 +2246,7 @@ function clearSupports(silent){
   supState = null; supIslands = null; supCtxCache = null;
   if (mesh && mesh.st) delete mesh.st.userSup;
   if (typeof modelObj !== 'undefined' && modelObj) modelObj.position.z = 0;
-  renderSupPanel();
+  renderSupPanel(); if (typeof applyClip === 'function') applyClip();
   if (typeof needRender !== 'undefined') needRender = true;
   if (!silent) recalc();
 }
@@ -2309,15 +2347,57 @@ async function buildSupports(type){
       const pts = supPoints(C, lim, () => P.sp*scaleSp, resin, MAXP*1.3);
       pillars = supPillars(C, pts, lv.base, () => ({ ...P, kind:type }));
     }
+    let stab = { ok:true, added:0 };
+    if (S.sup.stab !== false){ const r = addStabilizers(C, pillars, lv, resin, M, H, scaleSp, -Math.sin((type === 'hybrid' ? M.thr : supParams(type, resin).thr)*Math.PI/180)); pillars = pillars.concat(r.add); stab = r.info; }
     const keepIsl = supState ? supState.pillars.filter(p => p.island) : [];
-    supState = { type, resin, pillars: pillars.concat(keepIsl), ver: mesh.ver, scaleSp };
+    supState = { type, resin, pillars: pillars.concat(keepIsl), ver: mesh.ver, scaleSp, stab };
     if (resin){ if (type !== 'hybrid') S.sla.density = type; S.sla.supports = 'auto'; S.sla.tilt = 0; }
     else S.slicer.supports = 'auto';
     rebuildSupportGeom();
     const k = supState.kinds;
-    toast(pillars.length ? `${SUP_NAMES[type]} поддержки, опор: ${nf(pillars.length)}${type === 'hybrid' ? ` (лёгких ${k.light || 0}, средних ${k.medium || 0}, сложных ${k.heavy || 0})` : ''}${scaleSp > 1.01 ? `, шаг увеличен ×${nf(scaleSp,1)} — модель крупная` : ''}` : 'Нависаний, которым нужны поддержки, не нашлось');
+    toast(pillars.length ? `${SUP_NAMES[type]} поддержки, опор: ${nf(pillars.length)}${type === 'hybrid' ? ` (лёгких ${k.light || 0}, средних ${k.medium || 0}, сложных ${k.heavy || 0})` : ''}${scaleSp > 1.01 ? `, шаг увеличен ×${nf(scaleSp,1)} — модель крупная` : ''}${stab.added ? `, из них стабилизирующих ${stab.added}` : ''}` : 'Нависаний, которым нужны поддержки, не нашлось');
   } catch(err){ console.error(err); toast('Не получилось построить поддержки: ' + err.message); }
   finally { busy(false); }
+}
+/* ---------- стабилизирующие опоры ----------
+   Если центр масс детали выходит за площадь опоры (опоры на основании + касание стола у FDM),
+   тяжёлая наклонённая деталь может оторваться или перевернуться. Тогда ставим опоры под нижние грани
+   со стороны центра масс — даже под пологие, которым по углу опора не нужна. */
+function massCenter(pos){
+  let V = 0, cx = 0, cy = 0, cz = 0;
+  for (let o = 0; o < pos.length; o += 9){
+    const ax = pos[o], ay = pos[o+1], az = pos[o+2], bx = pos[o+3], by = pos[o+4], bz = pos[o+5], qx = pos[o+6], qy = pos[o+7], qz = pos[o+8];
+    const v = (ax*(by*qz - bz*qy) - ay*(bx*qz - bz*qx) + az*(bx*qy - by*qx))/6;
+    V += v; cx += v*(ax + bx + qx)/4; cy += v*(ay + by + qy)/4; cz += v*(az + bz + qz)/4;
+  }
+  return Math.abs(V) > 1e-9 ? { x: cx/V, y: cy/V, z: cz/V, V: Math.abs(V) } : null;
+}
+function inPoly(px, py, poly){ let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [xi, yi] = poly[i], [xj, yj] = poly[j]; if (((yi > py) !== (yj > py)) && px < (xj - xi)*(py - yi)/(yj - yi) + xi) c = !c; } return c; }
+function stableCheck(pillars, resin, com){
+  const pts = pillars.filter(p => !p.onModel).map(p => [p.x, p.y]);
+  if (!resin){ const pos = mesh.pos; for (let i = 0; i < pos.length; i += 3) if (pos[i+2] < 0.3) pts.push([pos[i], pos[i+1]]); }
+  const hull = convexHull(pts);
+  if (hull.length < 3) return { ok:false, c:[pts.length ? pts[0][0] : 0, pts.length ? pts[0][1] : 0] };
+  let cx = 0, cy = 0; hull.forEach(([x, y]) => { cx += x; cy += y; }); cx /= hull.length; cy /= hull.length;
+  const shrunk = hull.map(([x, y]) => [cx + (x - cx)*0.8, cy + (y - cy)*0.8]);
+  return { ok: inPoly(com.x, com.y, shrunk), c:[cx, cy] };
+}
+function addStabilizers(C, pillars, lv, resin, M, H, k, limMain){
+  const com = massCenter(mesh.pos); if (!com) return { add:[], info:{ ok:true, added:0 } };
+  const chk = stableCheck(pillars, resin, com);
+  // крупная деталь (выше 30 мм или тяжелее 50 г): пологие нижние стенки без опор тянут её вниз и отрывают — подпираем их тоже
+  const big = mesh.st.dimZ >= 30 || com.V/1000*material().density >= 50;
+  if (chk.ok && !big) return { add:[], info:{ ok:true, added:0 } };
+  const sp = M.sp*(resin ? 1.6 : 2)*k, cs = sp*1.2, h = new Map(), key = (x, y) => Math.floor(x/cs) + ',' + Math.floor(y/cs);
+  for (const p of pillars){ const kk = key(p.x, p.y); if (!h.has(kk)) h.set(kk, []); h.get(kk).push(p); }
+  const near = p => { const cx = Math.floor(p.x/cs), cy = Math.floor(p.y/cs);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const q of h.get((cx + dx) + ',' + (cy + dy)) || []) if (Math.hypot(q.x - p.x, q.y - p.y) < cs && Math.abs(q.z - p.z) < 4) return true;
+    return false; };
+  const ux = com.x - chk.c[0], uy = com.y - chk.c[1];
+  const cand = supPoints(C, -Math.sin(8*Math.PI/180), () => sp, resin, 4000)
+    .filter(p => !near(p) && (chk.ok ? p.nz >= limMain : ((p.x - chk.c[0])*ux + (p.y - chk.c[1])*uy) > 0));
+  const add = supPillars(C, cand, lv.base, () => ({ ...H, tip: M.tip, kind:'stab' })).filter(p => !p.onModel).slice(0, 2000);
+  return { add, info:{ ok: chk.ok, big, added: add.length, fixed: stableCheck(pillars.concat(add), resin, com).ok } };
 }
 /* ---------- острова: участок слоя, под которым в прошлом слое пусто ---------- */
 async function findIslands(){
@@ -2368,7 +2448,7 @@ function drawIslands(){
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
   islObj = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color:0xff2d55, depthTest:false, transparent:true, opacity:0.9 }));
-  islObj.renderOrder = 10; islObj.position.z = modelObj ? modelObj.position.z : 0; modelGroup.add(islObj); needRender = true;
+  islObj.renderOrder = 10; islObj.position.z = modelObj ? modelObj.position.z : 0; modelGroup.add(islObj); needRender = true; applyClip();
 }
 async function supportIslands(type){
   if (!mesh) return;
@@ -2395,16 +2475,16 @@ async function supportIslands(type){
 function rebuildSupportGeom(){
   if (!supState || !mesh) return;
   const resin = supState.resin, lv = supLevels(resin), out = []; let vol = 0; const SEG = 6;
-  const cyl = (ax, ay, az, bx, by, bz, r0, r1) => {
+  const cyl = (ax, ay, az, bx, by, bz, r0, r1, SG = SEG) => {
     const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz); if (L < 1e-6) return;
     const ux = dx/L, uy = dy/L, uz = dz/L;
     let px = -uy, py = ux, pz = 0, pl = Math.hypot(px, py); if (pl < 1e-6){ px = 1; py = 0; pl = 1; }
     px /= pl; py /= pl;
     const qx = uy*pz - uz*py, qy = uz*px - ux*pz, qz = ux*py - uy*px;
-    const ring = (cx, cy, cz, r) => { const a = []; for (let s = 0; s < SEG; s++){ const f = s/SEG*Math.PI*2, c = Math.cos(f)*r, si = Math.sin(f)*r; a.push([cx + px*c + qx*si, cy + py*c + qy*si, cz + pz*c + qz*si]); } return a; };
+    const ring = (cx, cy, cz, r) => { const a = []; for (let s = 0; s < SG; s++){ const f = s/SG*Math.PI*2, c = Math.cos(f)*r, si = Math.sin(f)*r; a.push([cx + px*c + qx*si, cy + py*c + qy*si, cz + pz*c + qz*si]); } return a; };
     const A = ring(ax, ay, az, r0), B = ring(bx, by, bz, r1);
-    for (let s = 0; s < SEG; s++){ const s2 = (s + 1)%SEG; out.push(...A[s], ...B[s], ...B[s2], ...A[s], ...B[s2], ...A[s2]); }
-    for (let s = 1; s < SEG - 1; s++) out.push(...A[0], ...A[s+1], ...A[s], ...B[0], ...B[s], ...B[s+1]);
+    for (let s = 0; s < SG; s++){ const s2 = (s + 1)%SG; out.push(...A[s], ...B[s], ...B[s2], ...A[s], ...B[s2], ...A[s2]); }
+    for (let s = 1; s < SG - 1; s++) out.push(...A[0], ...A[s+1], ...A[s], ...B[0], ...B[s], ...B[s+1]);
     vol += Math.PI*L/3*(r0*r0 + r0*r1 + r1*r1);
   };
   const P = supState.pillars, kinds = {};
@@ -2417,20 +2497,30 @@ function rebuildSupportGeom(){
     if (s.onModel) cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, s.r, s.tip);
     else cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, s.r, lv.rc.t ? s.r*1.6 : s.pad);
   }
-  // связи: ближайшая соседняя опора на основании, перемычки зигзагом
-  const br = P.map((s, i) => i).filter(i => P[i].brace > 0 && !P[i].onModel);
+  // перекрытия: «связи» — зигзаг у опор с параметром связей; «леса» — балки и диагонали со всеми соседями
+  const lat = LATTICE[S.sup.lattice] ? S.sup.lattice : 'braces', scaf = lat === 'scaffold';
+  const br = lat === 'none' ? [] : P.map((s, i) => i).filter(i => !P[i].onModel && (scaf || P[i].brace > 0));
   if (br.length > 1){
     const cs = (resin ? 6 : 10)*(supState.scaleSp || 1), hk = (x, y) => Math.floor(x/cs) + ',' + Math.floor(y/cs), h = new Map(), done = new Set();
+    const many = br.length > 1500, maxNb = scaf ? (many ? 2 : 3) : 1, sg = many ? 4 : 6; let beams = 0;
     br.forEach(i => { const k = hk(P[i].x, P[i].y); if (!h.has(k)) h.set(k, []); h.get(k).push(i); });
     for (const i of br){
-      const a = P[i]; let bj = -1, bd = Infinity; const cx = Math.floor(a.x/cs), cy = Math.floor(a.y/cs);
+      const a = P[i], cx = Math.floor(a.x/cs), cy = Math.floor(a.y/cs), nb = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const j of h.get((cx + dx) + ',' + (cy + dy)) || []){
-        if (j === i) continue; const d = Math.hypot(P[j].x - a.x, P[j].y - a.y); if (d > 0.5 && d < cs && d < bd){ bd = d; bj = j; }
+        if (j === i) continue; const d = Math.hypot(P[j].x - a.x, P[j].y - a.y); if (d > 0.5 && d < cs) nb.push([d, j]);
       }
-      if (bj < 0) continue; const key = Math.min(i, bj) + ':' + Math.max(i, bj); if (done.has(key)) continue; done.add(key);
-      const b = P[bj], step = Math.min(a.brace, b.brace), rr = Math.min(a.r, b.r)*0.6, topZ = Math.min(a.z, b.z) - Math.max(a.tipL, b.tipL) - 1;
-      let up = true;
-      for (let z = lv.base + 2; z + step*0.6 < topZ; z += step){ if (up) cyl(a.x, a.y, z, b.x, b.y, z + step*0.6, rr, rr); else cyl(b.x, b.y, z, a.x, a.y, z + step*0.6, rr, rr); up = !up; }
+      nb.sort((p, q) => p[0] - q[0]);
+      for (const [, j] of nb.slice(0, maxNb)){
+        const key = Math.min(i, j) + ':' + Math.max(i, j); if (done.has(key)) continue; done.add(key);
+        const b = P[j], step = scaf ? (Math.min(a.brace || 0, b.brace || 0) || (resin ? 5 : 8)) : Math.min(a.brace, b.brace);
+        const rr = Math.min(a.r, b.r)*(scaf ? 0.5 : 0.6), topZ = Math.min(a.z, b.z) - Math.max(a.tipL, b.tipL) - 1, rise = scaf ? step : step*0.6;
+        let up = true;
+        for (let z = lv.base + 2; z < topZ && beams < 120000; z += step){
+          if (scaf){ cyl(a.x, a.y, z, b.x, b.y, z, rr, rr, sg); beams++; }
+          if (z + rise < topZ){ if (up) cyl(a.x, a.y, z, b.x, b.y, z + rise, rr, rr, sg); else cyl(b.x, b.y, z, a.x, a.y, z + rise, rr, rr, sg); beams++; }
+          up = !up;
+        }
+      }
     }
   }
   // плот: выпуклая оболочка опор на основании и дна детали, с запасом по краю
@@ -2461,7 +2551,7 @@ function rebuildSupportGeom(){
   }
   if (modelObj) modelObj.position.z = lv.lift;
   if (islObj) islObj.position.z = lv.lift;
-  needRender = true;
+  needRender = true; applyClip();
   renderSupPanel(); syncInputs(); recalc();
 }
 function convexHull(pts){
@@ -2486,6 +2576,11 @@ function renderSupPanel(){
   b.classList.toggle('on', !!supState || !$('supPanel').hidden);
   b.title = supState ? `Построены: ${SUP_NAMES[supState.type].toLowerCase()}, опор: ${nf(supState.n)}` : 'Поддержки, плот и острова';
   document.querySelectorAll('#supPanel [data-sup]').forEach(x => x.classList.toggle('on', !!supState && x.dataset.sup === supState.type));
+  $('latSeg').innerHTML = Object.entries(LATTICE).map(([k, v]) => `<button type="button" data-lat="${k}" class="${(S.sup.lattice || 'braces') === k ? 'on' : ''}">${v.l}</button>`).join('');
+  $('latNote').textContent = LATTICE[S.sup.lattice || 'braces'].d;
+  $('stabChk').checked = S.sup.stab !== false;
+  const sb = supState && supState.stab;
+  $('stabNote').textContent = !supState ? 'Если центр масс выходит за опоры, программа добавит опоры под нижние грани с этой стороны.' : !sb || (sb.ok && !sb.added) ? 'Деталь устойчива: центр масс над опорами, пологих стенок без опор нет.' : sb.ok ? `Деталь крупная и наклонена — под пологие нижние стенки добавлено стабилизирующих опор: ${sb.added}` : `Центр масс выходил за опоры — добавлено стабилизирующих: ${sb.added}${sb.fixed ? '' : '. Деталь всё ещё на краю — уменьшите наклон или выберите «Сложные»'}`;
   $('raftSeg').innerHTML = Object.entries(RAFT[g]).map(([k, v]) => `<button type="button" data-raft="${k}" class="${raftCfg(g).key === k ? 'on' : ''}">${v.l}</button>`).join('');
   const rc = raftCfg(g);
   $('raftNote').textContent = rc.t ? `${nf(rc.t,1)} мм${rc.fill < 1 ? `, заполнение ${nf(rc.fill*100)}%` : ''}, запас по краю ${nf(rc.m,1)} мм` : g === 'fdm' && rc.key === 'brim' ? 'Кайма 5 мм вокруг первого слоя' : resin ? 'Опоры стоят прямо на платформе на подошвах' : 'Деталь печатается прямо на столе';
@@ -2507,6 +2602,7 @@ function wireSupPanel(){
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.sup) buildSupports(t.dataset.sup);
     else if (t.dataset.raft) setRaft(t.dataset.raft);
+    else if (t.dataset.lat){ S.sup.lattice = t.dataset.lat; save(); if (supState) rebuildSupportGeom(); else renderSupPanel(); }
     else if (t.dataset.isl) supportIslands(t.dataset.isl);
     else if (t.dataset.edit){ supEditType = t.dataset.edit; renderSupPanel(); }
     else if (t.id === 'islFind') findIslands();
@@ -2514,7 +2610,9 @@ function wireSupPanel(){
     else if (t.id === 'supReset'){ const g = supGroup(); delete S.sup.cfg[g][supEditType]; if (g === 'resin') S.sup.lift = 5; renderSupPanel(); save(); toast('Параметры сброшены'); }
   });
   $('supPanel').addEventListener('change', e => {
-    const el = e.target; if (el.dataset.sp == null) return;
+    const el = e.target;
+    if (el.id === 'stabChk'){ S.sup.stab = el.checked; save(); if (supState && supState.type !== 'islands') buildSupports(supState.type); else renderSupPanel(); return; }
+    if (el.dataset.sp == null) return;
     const v = parseFloat(el.value); if (!(v >= 0)) return;
     const g = supGroup(), f = SUP_FIELDS.find(x => x.k === el.dataset.sp);
     if (el.dataset.sp === 'lift') S.sup.lift = Math.max(1, v);
@@ -2599,6 +2697,65 @@ function wirePosPanel(){
   });
 }
 
+/* ======================================================================
+   ПРОСМОТР НАРЕЗКИ ПО СЛОЯМ: ползунок срезает модель и опоры на высоте слоя
+   и обводит контур сечения — видно, что печатается на каждом слое.
+   ====================================================================== */
+let layerZ = null, cutObj = null, clipPlane = null, layerRaf = 0;
+const layerH = () => Math.max(0.01, RESIN.has(S.tech) ? +S.sla.layer || 0.05 : +S.slicer.layer || 0.2);
+function layerCount(){ return mesh && mesh.st ? Math.max(1, Math.round(mesh.st.dimZ/layerH())) : 1; }
+function renderLayerUI(){
+  const r = $('layerRange'); if (!r) return;
+  const box = $('layerBox'); box.hidden = !mesh;
+  if (!mesh) return;
+  const N = layerCount(); r.max = N;
+  const L = layerZ === null ? N : Math.max(1, Math.min(N, Math.round(layerZ/layerH())));
+  if (document.activeElement !== r) r.value = L;
+  $('layerVal').textContent = layerZ === null ? `${N} слоёв` : `${L} / ${N} · ${nf(Math.min(layerZ, mesh.st.dimZ), 2)} мм`;
+  $('layerAll').hidden = layerZ === null;
+}
+function setLayer(L){
+  if (!mesh) return;
+  const N = layerCount();
+  layerZ = L >= N ? null : Math.max(1, L)*layerH();
+  renderLayerUI();
+  cancelAnimationFrame(layerRaf); layerRaf = requestAnimationFrame(applyClip);
+}
+function applyClip(){
+  if (typeof THREE === 'undefined' || !renderer || !modelGroup) return;
+  renderer.localClippingEnabled = true;
+  if (!clipPlane) clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  const lift = modelObj ? modelObj.position.z : 0, on = !!mesh && layerZ !== null;
+  clipPlane.constant = on ? layerZ + lift : 1e9;           // в мире ось вверх — Y; оставляем всё ниже среза
+  for (const o of [modelObj, supObj, islObj]) if (o){ o.material.clippingPlanes = on ? [clipPlane] : []; o.material.needsUpdate = true; }
+  cutObj = removeObj(cutObj);
+  if (on){
+    // контур сечения: пересечение треугольников с плоскостью z = layerZ
+    const p = mesh.pos, z = layerZ - layerH()/2, seg = [];
+    for (let o = 0; o < p.length; o += 9){
+      const za = p[o+2], zb = p[o+5], zc = p[o+8];
+      if ((za < z && zb < z && zc < z) || (za > z && zb > z && zc > z)) continue;
+      const pts = [];
+      for (const [i, j] of [[0,3],[3,6],[6,0]]){
+        const z1 = p[o+i+2], z2 = p[o+j+2]; if ((z1 < z) === (z2 < z)) continue;
+        const f = (z - z1)/(z2 - z1); pts.push(p[o+i] + (p[o+j] - p[o+i])*f, p[o+i+1] + (p[o+j+1] - p[o+i+1])*f, z);
+      }
+      if (pts.length === 6) seg.push(...pts);
+    }
+    if (seg.length){
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
+      cutObj = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color:0xff9f1c, depthTest:false }));
+      cutObj.renderOrder = 11; cutObj.position.z = lift; modelGroup.add(cutObj);
+    }
+  }
+  needRender = true;
+}
+function resetLayer(){ layerZ = null; renderLayerUI(); applyClip(); }
+function wireLayers(){
+  $('layerRange').addEventListener('input', e => setLayer(+e.target.value));
+  $('layerAll').onclick = () => resetLayer();
+}
+
 /* Масштаб: ползунок показывает новый размер сразу, пересчёт — когда отпустили */
 function renderScalePop(){
   if (!mesh || !$('scalePop')) return;
@@ -2607,6 +2764,8 @@ function renderScalePop(){
 }
 function scaleDimsText(k){
   const st = mesh.st; $('scaleDims').textContent = `${nf(st.dimX*k,1)} × ${nf(st.dimY*k,1)} × ${nf(st.dimZ*k,1)} мм`;
+  for (const a of ['X','Y','Z']){ const el = $('s' + a); if (el && document.activeElement !== el) el.value = +(st['dim' + a]*k).toFixed(1); }
+  const l1 = $('scaleLock'), l2 = $('scaleLock2'); if (l1) l1.checked = S.part.scaleLock !== false; if (l2) l2.checked = S.part.scaleLock !== false;
 }
 function setScalePct(v){
   if (!mesh || !(v > 0)) return;
@@ -2629,14 +2788,14 @@ async function setMesh(pos, name){
   mesh = { pos, name, st, unit:1, scale:1, ver: ++MESH_VER }; orcaErr = null;
   $('unitSel').value = '1'; $('scalePct').value = 100;
   busy(false);
-  drawModel(); fitCam(); renderModelInfo(); renderScalePop(); renderPosPanel(); renderSupPanel();
+  drawModel(); fitCam(); renderModelInfo(); renderScalePop(); renderPosPanel(); renderSupPanel(); resetLayer();
 }
 async function reanalyze(keepCam){
   clearSupports(true);
   busy(true); await tick();
   mesh.st = analyzeMesh(mesh.pos); mesh.ver = ++MESH_VER; orcaErr = null;
   busy(false);
-  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc(); renderScalePop(); renderPosPanel(); renderSupPanel();
+  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc(); renderScalePop(); renderPosPanel(); renderSupPanel(); resetLayer();
   orcaAutoSlice();
 }
 
@@ -2916,7 +3075,8 @@ function renderSummary(){
   $('sumAlerts').innerHTML = al.join('');
   $('sumRows').innerHTML = costRowsHTML(r, !inBasket);
   const rows = [['cost strong adv','Себестоимость', rub(r.cost)],
-    ['adv', `Наценка ${m.markup}%${B.discount && m.adjust ? `, ${m.adjust > 0 ? '+' : ''}${m.adjust}%` : ''}${r.rush ? `, срочность +${m.rushPct}%` : ''}${r.minApplied ? ', минимум' : ''}<small class="pro">${rub(r.cost)} × ${nf(1 + m.markup/100,2)}${B.discount && m.adjust ? ` × ${nf(1 + m.adjust/100,2)}` : ''}${r.rush ? ` × ${nf(1 + r.rush,2)}` : ''}${r.minApplied ? ` → минимум ${rub(m.minOrder)}` : ''}</small>`, rub(r.net - r.cost)],
+    ['adv', `Наценка ${m.markup}%${B.discount && m.adjust ? `, ${m.adjust > 0 ? '+' : ''}${m.adjust}%` : ''}${r.rush ? `, срочность +${m.rushPct}%` : ''}${r.minApplied ? ', минимум' : ''}<small class="pro">${rub(r.cost)} × ${nf(1 + m.markup/100,2)}${B.discount && m.adjust ? ` × ${nf(1 + m.adjust/100,2)}` : ''}${r.rush ? ` × ${nf(1 + r.rush,2)}` : ''}${r.minApplied ? ` → минимум ${rub(m.minOrder)}` : ''}</small>`, rub(r.net - r.cost + (r.minApplied ? 0 : r.optAmt))],
+    ...(r.optD && !r.minApplied ? [['adv opt', `Скидка за опт ${nf(r.optD*100)}%<small class="pro">от ${nf(r.optQ)} шт · ${rub(r.net + r.optAmt)} × ${nf(r.optD*100)}%</small>`, '−' + rub(r.optAmt)]] : []),
     ['strong', B.tax ? 'Выручка без налогов' : 'Выручка', rub(r.net)]];
   if (B.tax) rows.push(['', `Налог ${m.taxRev}%<small class="pro">${rub(r.net)} ÷ (1 − ${m.taxRev}%) − ${rub(r.net)}</small>`, rub(r.taxRev)]);
   if (B.tax && m.vat > 0) rows.push(['', `НДС ${m.vat}%<small class="pro">${rub(r.net + r.taxRev)} × ${m.vat}%</small>`, rub(r.vatAmt)]);
@@ -2961,6 +3121,7 @@ function kpText(){
     L.push('');
     if (it.qty > 1) L.push(`Цена за 1 шт: ${rubU(r.client/r.qty)}`);
     L.push(`Итого: ${rubU(r.client)}`);
+    if (r.optD && !r.minApplied) L.push(`С учётом скидки за объём ${nf(r.optD*100)}%`);
     if (B.tax && S.money.vat > 0) L.push(`В том числе НДС ${S.money.vat}%: ${rubU(r.vatAmt)}`);
     if (B.batch){
       L.push('', 'Цена за штуку при другом тираже:');
@@ -2990,7 +3151,7 @@ function clampInput(el, v){
   return v;
 }
 function syncInputs(){
-  renderLayerOptions(); renderPresetsMk();
+  renderLayerOptions(); renderPresetsMk(); renderOpt();
   if ($('nightBox')) $('nightBox').hidden = !S.money.twoRate;
   document.querySelectorAll('[data-bind]').forEach(el => { const v = getPath(el.dataset.bind); if (el.type === 'checkbox') el.checked = !!v; else if (document.activeElement !== el) el.value = v; });
   const resin = RESIN.has(S.tech);
@@ -3037,7 +3198,13 @@ function setMode(mode){
   for (const k of ['simple','adv','pro']) document.body.classList.toggle('mode-' + k, S.mode === k);
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode));
 }
-function supAfterDraw(){ if (modelObj && supState && supObj) modelObj.position.z = supState.lift; }
+function supAfterDraw(){ if (modelObj && supState && supObj) modelObj.position.z = supState.lift; if (layerZ !== null) applyClip(); }
+function renderOpt(){
+  const box = $('optRows'); if (!box) return;
+  const a = document.activeElement; if (a && a.dataset && a.dataset.opt != null) return;
+  const m = S.money; m.opt = (m.opt || []).filter(Boolean);
+  box.innerHTML = m.opt.map((t, i) => `<div class="opt-row"><span class="rot-l">от</span><span class="inp sm"><input type="number" min="1" step="1" data-opt="${i}" data-f="q" value="${t.q}" aria-label="Порог, шт"><em>шт</em></span><span class="rot-l">скидка</span><span class="inp sm"><input type="number" min="0" max="90" step="1" data-opt="${i}" data-f="d" value="${t.d}" aria-label="Скидка, %"><em>%</em></span><button type="button" class="tp-x" data-optdel="${i}" aria-label="Удалить порог">×</button></div>`).join('') || '<small class="cap">Порогов нет</small>';
+}
 function renderPresetsMk(){
   const p = S.money.presets || [];
   $('mkPresets').innerHTML = p.map((x, i) => `<button type="button" data-mk="${i}" class="${+x.v === +S.money.markup ? 'on' : ''}">${esc(x.n)} ${x.v}%</button>`).join('');
@@ -3107,6 +3274,7 @@ function enforceMgr(force){
 }
 function recalc(){
   enforceMgr();
+  if (typeof renderLayerUI === 'function') renderLayerUI();
   try { lastEst = currentEstimate(); } catch(err){ console.error(err); lastEst = null; }
   if (!useManual()) renderEstimate();
   renderSummary();
@@ -3405,6 +3573,15 @@ function wire(){
   document.addEventListener('keydown', e => { if (e.ctrlKey && e.altKey && (e.key === 'e' || e.key === 'E' || e.code === 'KeyE')){ e.preventDefault(); if (!S.eng) unlockEng(); else { S.eng = false; setEngSession(false); setMode('adv'); save(); toast('Инженерный режим закрыт'); } } });
   if (/engineer/i.test(location.hash) && !S.eng) setTimeout(unlockEng, 300);
   // кнопки наценки и их настройка
+  $('optRows').addEventListener('change', e => {
+    const el = e.target, t = S.money.opt[+el.dataset.opt]; if (!t) return;
+    let v = Math.max(0, parseFloat(el.value) || 0);
+    if (el.dataset.f === 'd'){ v = Math.min(90, v); if (S.mode !== 'pro'){ const tol = Math.max(0, +S.money.mgrTol || 0); if (v > tol){ v = tol; toast(`В расширенном режиме скидка за опт — не больше ${nf(tol)}%`); } } }
+    else v = Math.max(1, Math.round(v));
+    t[el.dataset.f] = v; S.money.opt.sort((a, b) => a.q - b.q); el.blur(); renderOpt(); recalc();
+  });
+  $('optRows').addEventListener('click', e => { const b = e.target.closest('[data-optdel]'); if (!b) return; S.money.opt.splice(+b.dataset.optdel, 1); renderOpt(); recalc(); });
+  $('optAdd').onclick = () => { const o = S.money.opt, last = o[o.length - 1]; o.push({ q: last ? last.q*2 : 10, d: last ? Math.min(+S.money.mgrTol || 25, last.d + 5) : 5 }); renderOpt(); recalc(); };
   $('mkPresets').addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b) return; S.money.markup = S.money.baseMarkup = +S.money.presets[+b.dataset.mk].v; syncInputs(); recalc(); });
   ['mk','adj'].forEach(id => $(id).addEventListener('change', () => { enforceMgr(true); recalc(); }));
   $('mkEdit').addEventListener('input', e => { const el = e.target, p = S.money.presets[+el.dataset.pre]; if (!p) return; if (el.dataset.f === 'n') p.n = el.value; else { const v = parseFloat(el.value); if (Number.isFinite(v) && v >= 0) p.v = v; } renderPresetsMk(); recalc(); });
@@ -3441,7 +3618,7 @@ function wire(){
   $('btnPos').onclick = () => togglePanel('posPanel');
   document.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => togglePanel(b.dataset.close); });
   $('btnFlat2').onclick = layFlat;
-  wireSupPanel(); wirePosPanel();
+  wireSupPanel(); wirePosPanel(); wireLayers();
   $('btnScale').onclick = e => { e.stopPropagation(); $('scalePop').hidden = !$('scalePop').hidden; renderScalePop(); };
   document.addEventListener('pointerdown', e => { if (!e.target.closest('#scalePop, #btnScale')) $('scalePop').hidden = true; });
   $('scaleRange').addEventListener('input', e => {
@@ -3451,6 +3628,7 @@ function wire(){
   });
   $('scaleRange').addEventListener('change', e => setScalePct(+e.target.value));
   $('scaleNum').addEventListener('change', e => setScalePct(parseFloat(e.target.value)));
+  ['scaleLock','scaleLock2'].forEach(id => $(id).addEventListener('change', e => { S.part.scaleLock = e.target.checked; save(); scaleDimsText(1); }));
   $('scalePop').addEventListener('click', e => { const q = e.target.closest('[data-scale]'); if (q) setScalePct(+q.dataset.scale); if (e.target.closest('#scaleFit')) fitScale(); });
   $('techMain').addEventListener('click', e => { const b = e.target.closest('[data-main]'); if (!b) return; setTech(b.dataset.main === 'resin' ? (S.resinSub || 'sla') : 'fdm'); });
   $('techSub').addEventListener('click', e => { const b = e.target.closest('[data-sub]'); if (!b) return; setTech(b.dataset.sub); });
@@ -3470,11 +3648,19 @@ function wire(){
   };
   $('unitSel').addEventListener('change', e => { if (applyScale(parseFloat(e.target.value), mesh && mesh.scale)) reanalyze(); });
   $('scalePct').addEventListener('change', e => { if (applyScale(mesh && mesh.unit, parseFloat(e.target.value)/100)) reanalyze(); });
-  ['dimX','dimY','dimZ'].forEach(id => $(id).addEventListener('change', e => {
+  // размер по оси: пропорционально — меняется весь масштаб, иначе только эта ось
+  const setDim = (axis, v) => {
     if (!mesh || $('busy').hidden === false) return;
-    const v = parseFloat(e.target.value), cur = mesh.st[id]; if (!(v > 0) || !(cur > 0)) return;
-    if (applyScale(mesh.unit, mesh.scale*v/cur)) reanalyze();
-  }));
+    const id = 'dim' + axis, cur = mesh.st[id]; if (!(v > 0) || !(cur > 0) || Math.abs(v - cur) < 1e-6) return;
+    if (S.part.scaleLock !== false){ if (applyScale(mesh.unit, mesh.scale*v/cur)) reanalyze(); return; }
+    const k = v/cur, p = mesh.pos, o = { X:0, Y:1, Z:2 }[axis];
+    for (let i = o; i < p.length; i += 3) p[i] *= k;
+    normalizePos(p); reanalyze(); toast(`Ось ${axis}: ${nf(cur,1)} → ${nf(v,1)} мм, остальные оси без изменений`);
+  };
+  ['X','Y','Z'].forEach(a => {
+    $('dim' + a).addEventListener('change', e => setDim(a, parseFloat(e.target.value)));
+    $('s' + a).addEventListener('change', e => setDim(a, parseFloat(e.target.value)));
+  });
   $('srcSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; setSource(b.dataset.src); recalc(); if (useOrca()){ orcaInit().then(() => { if (!orcaFresh()) orcaAutoSlice(true); }); } });
   $('presets').addEventListener('click', e => {
     const b = e.target.closest('[data-preset]'); if (!b) return;
