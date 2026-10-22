@@ -6,7 +6,7 @@
 # name = "Smeta 3D"
 # description = "Смета 3D-печати: цена, себестоимость и текст КП по каждой нарезке, прямо в панели рядом с 3D-видом."
 # author = "artemalv"
-# version = "1.3.0"
+# version = "1.4.0"
 # ///
 """Смета 3D-печати — плагин для OrcaSlicer 2.5+.
 
@@ -584,7 +584,6 @@ PAGE = r"""
 
 <div id="main" hidden>
 <details data-sec="models" id="secModels" hidden><summary>По моделям <small id="sModels"></small></summary><div class="body" style="gap:4px">
-  <div class="kitbar"><label class="chk"><input type="checkbox" id="kitOn"> Считать по нужному количеству</label><button type="button" class="b" id="kitNames" hidden title="Взять количество из имён файлов вида «…_x4_…»">из имён файлов</button></div>
   <div class="mhead"><span>модель · вес и время на 1 шт</span><span>цена за 1 шт</span></div>
   <svg class="map" id="plateMap" role="img" aria-label="Карта стола: цвет — цена детали"></svg>
   <div class="heat" id="heatLeg"><span>дешевле</span><i></i><span>дороже</span></div>
@@ -612,17 +611,6 @@ PAGE = r"""
 </div></details>
 
 <details data-sec="cost"><summary>Себестоимость и прибыль <small id="sCost"></small></summary><div class="body" id="rows"></div></details>
-<details data-sec="time"><summary>Сроки <small id="sTime"></small></summary><div class="body">
-  <div class="grid">
-    <label class="f"><span title="К какому сроку клиенту нужен заказ. Пусто — без срока">Нужно к</span><span class="inp"><input type="datetime-local" data-k="order.deadline"></span></label>
-    <label class="f"><span title="До какого времени принтер занят другими заказами. Пусто — свободен сейчас">Принтер занят до</span><span class="inp"><input type="datetime-local" data-k="pr.busyUntil"></span></label>
-    <label class="f"><span title="Когда начнётся печать. Пусто — как только принтер освободится">Старт печати</span><span class="inp"><input type="datetime-local" data-k="order.start"></span></label>
-    <label class="f"><span title="Наценка, если ради срока заказ ставится вне очереди и другие заказы сдвигаются">Наценка за срочность</span><span class="inp"><input type="number" min="0" max="300" step="5" data-k="money.rushPct"><em>%</em></span></label>
-  </div>
-  <div class="when" id="whenBox"></div>
-  <div class="actions" style="margin:0"><button type="button" class="b" id="busyNow">Принтер свободен</button><button type="button" class="b" id="busyAfter" title="Записать в «Принтер занят до» окончание этого заказа">Занять принтер этим заказом</button></div>
-</div></details>
-
 <details data-sec="tiers"><summary id="tiersLab">Цена за штуку при тираже</summary><div class="body"><div class="tiers" id="tiers"></div></div></details>
 
 <details data-sec="printer"><summary>Принтер <small id="sPr"></small></summary><div class="body">
@@ -725,7 +713,7 @@ PAGE = r"""
 
   /* экономика та же, что в калькуляторе «Смета 3D-печати»; вес и время стола — из G-code Orca */
   /* «Комплект по количеству»: сколько штук каждой модели нужно на 1 комплект */
-  function kitOn(){ return !!(S.order.kit && many()); }
+  function kitOn(){ return false; } // комплекты — только на сайте
   function nameCount(n){ var mm = /(?:^|[\]_\s-])x(\d{1,3})(?=[_\s.-]|$)/i.exec(n || ''); return mm ? +mm[1] : 0; }
   function need(o){ var v = (S.order.need || {})[o.name]; return v != null && isFinite(+v) ? Math.max(0, Math.round(+v)) : o.copies; }
   /* что печатаем: штуки каждой модели, время станка, граммы по пластикам, число столов */
@@ -733,17 +721,8 @@ PAGE = r"""
   function tms(v){ if (!v) return null; var t = Date.parse(v); return isFinite(t) ? t : null; }
   function fmtT(t){ var d = new Date(t); return d.toLocaleDateString('ru-RU', { weekday:'short', day:'2-digit', month:'2-digit' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }); }
   function nowMs(){ return window.__now ? window.__now : Date.now(); }
-  /* план: когда начнём и закончим; если не успеваем к сроку в очереди — вне очереди с наценкой */
-  function plan(hours){
-    var now = nowMs(), pr = prObj(), busy = tms(pr.busyUntil), explicit = tms(S.order.start), dl = tms(S.order.deadline), dur = hours * 3600e3;
-    var start = explicit != null ? explicit : Math.max(now, busy || 0), end = start + dur, mode = dl ? 'ok' : 'none';
-    if (dl && end > dl){
-      var rs = explicit != null ? Math.min(explicit, now) : now, re = Math.max(now, rs) + dur;
-      if (busy && busy > now && re <= dl){ mode = 'rush'; start = Math.max(now, rs); end = re; }
-      else { mode = 'late'; if (re < end){ start = Math.max(now, rs); end = re; } }
-    }
-    return { start:start, end:end, mode:mode, dl:dl, busy:busy };
-  }
+  /* печать начинается сейчас — время старта нужно только для ночного тарифа; сроки и срочность считаются на сайте */
+  function plan(hours){ var now = nowMs(); return { start:now, end:now + hours * 3600e3, mode:'none', dl:null, busy:null }; }
   function nightShare(start, hours){
     var m = S.money; if (!m.twoRate || hours <= 0) return 0;
     var a = (+m.nightFrom || 0) % 24, b = (+m.nightTo || 0) % 24, steps = 600, n = 0, dt = hours * 3600e3 / steps;
@@ -754,7 +733,7 @@ PAGE = r"""
 
   function job(q, n){
     var list = objs(), per, machineS, plates, gSlot = fils().map(function(){ return 0; }), pcs;
-    if (kitOn()){
+    if (false){
       per = list.map(function(o){ return { o:o, pcs:need(o) * q }; });
       machineS = per.reduce(function(a, x){ return a + x.pcs * (x.o.timeS || 0) / x.o.copies; }, 0);
       plates = Math.max(1, Math.ceil(machineS / Math.max(1, slice.machineS || 1) - 1e-6));
@@ -893,15 +872,6 @@ PAGE = r"""
     $('mkPresets').innerHTML = presets().map(function(p, i){ return '<button type="button" class="pre' + (+p.v === +m.markup ? ' on' : '') + '" data-mk="' + i + '">' + esc(p.n) + ' ' + p.v + '%</button>'; }).join('');
     if (!(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.pre != null))
       $('mkEdit').innerHTML = presets().map(function(p, i){ return '<span class="inp"><input type="text" data-pre="' + i + '" data-f="n" value="' + esc(p.n) + '" aria-label="Название кнопки ' + (i + 1) + '"></span><span class="inp"><input type="number" min="0" step="5" data-pre="' + i + '" data-f="v" value="' + p.v + '" aria-label="Наценка кнопки ' + (i + 1) + '"><em>%</em></span>'; }).join('');
-    // сроки
-    var P = r.plan, wb = $('whenBox');
-    wb.className = 'when ' + (P.mode === 'none' ? '' : P.mode);
-    wb.innerHTML = P.mode === 'none' ? 'Старт ' + fmtT(P.start) + ' → готово ≈ <b>' + fmtT(P.end) + '</b>'
-      : P.mode === 'ok' ? 'Успеваем: готово ≈ <b>' + fmtT(P.end) + '</b>, срок ' + fmtT(P.dl)
-      : P.mode === 'rush' ? 'В очереди не успеть — ставим вне очереди: старт сейчас, готово ≈ <b>' + fmtT(P.end) + '</b>. Наценка за срочность +' + (m.rushPct || 0) + '%'
-      : 'Не успеть к ' + fmtT(P.dl) + ' даже вне очереди: самое раннее <b>' + fmtT(P.end) + '</b>';
-    $('sTime').textContent = P.mode === 'rush' ? 'срочно +' + (m.rushPct || 0) + '%' : P.mode === 'late' ? 'не успеть' : 'готово ' + fmtT(P.end).replace(/^\S+\s/, '');
-    $('busyAfter').dataset.end = P.end;
     // день/ночь
     $('nightBox').hidden = !m.twoRate; $('kwhLab').textContent = m.twoRate ? 'Дневной тариф' : 'Тариф на электричество';
     // по моделям
@@ -919,7 +889,6 @@ PAGE = r"""
       $('sModels').textContent = bm.length + ' ' + plural(bm.length, 'модель', 'модели', 'моделей');
       drawMap(bm);
       var hasNames = objs().some(function(o){ return nameCount(o.name) > 0; });
-      $('kitOn').checked = kitOn(); $('kitNames').hidden = !(kitOn() && hasNames);
       $('modelHint').textContent = (kitOn() ? 'Комплект ' + r.J.pcs / r.q + ' шт: время и пластик считаются по каждой детали, столов ≈ ' + r.plates + '. Точнее всего, если на столе лежит по одной детали каждого вида. ' : '') +
         (slice.overheadG > 0.05 ? 'Башня, продувка и юбка (' + grams(slice.overheadG) + ' на стол) разделены между моделями пропорционально их пластику.' : '');
     } else if (noLabels){
