@@ -6,7 +6,7 @@
 # name = "Smeta 3D"
 # description = "Смета 3D-печати: цена, себестоимость и текст КП по каждой нарезке, прямо в панели рядом с 3D-видом."
 # author = "artemalv"
-# version = "1.4.0"
+# version = "1.4.1"
 # ///
 """Смета 3D-печати — плагин для OrcaSlicer 2.5+.
 
@@ -579,7 +579,7 @@ PAGE = r"""
   <div class="sum" id="summary"></div>
   <div class="bar" id="bar"></div>
   <div class="legend" id="legend"></div>
-  <div class="actions"><button type="button" class="b pri" id="copyQuick">Скопировать КП</button><span class="hint" id="copiedQ"></span></div>
+  <p class="hint" id="noteInfo"></p>
 </div>
 
 <div id="main" hidden>
@@ -659,12 +659,6 @@ PAGE = r"""
   <label class="f"><span title="Доля деталей, которые придётся печатать заново">Резерв на брак</span><span class="inp"><input type="number" min="0" max="60" step="1" data-k="money.risk"><em>%</em></span></label>
 </div></div></details>
 
-<details data-sec="kp"><summary>Текст КП</summary><div class="body">
-  <label class="f"><span>Название изделия</span><span class="inp"><input type="text" data-k="order.name" id="pname" placeholder="например, корпус датчика"></span></label>
-  <textarea id="kp" readonly aria-label="Текст коммерческого предложения"></textarea>
-  <div class="actions" style="margin:0"><button type="button" class="b pri" id="copy">Скопировать</button><span class="hint" id="copied"></span></div>
-  <p class="hint" id="noteInfo"></p>
-</div></details>
 </div>
 
 <script>
@@ -935,7 +929,6 @@ PAGE = r"""
     $('prPreset').textContent = prx.preset ? 'Ставки из готового профиля ' + prx.preset + (ps && ps.note ? ': ' + ps.note : '') + '.' : '';
     $('sWork').textContent = rub(r.labor + r.extra);
     $('sTax').textContent = (m.taxRev || 0) + '%' + (+m.vat ? ' + НДС ' + m.vat + '%' : '') + (+m.adjust ? ' · ' + (m.adjust > 0 ? '+' : '') + m.adjust + '%' : '');
-    $('kp').value = kpText(r);
     maybeNotify(r);
     // разделы, открытые в прошлый раз
     document.querySelectorAll('details[data-sec]').forEach(function(d){ if (!d.dataset.init){ d.dataset.init = 1; d.open = (S.ui && S.ui.open || []).indexOf(d.dataset.sec) >= 0; } });
@@ -1003,8 +996,6 @@ PAGE = r"""
     if (e.target.id === 'busyAfter'){ var d = new Date(+e.target.dataset.end); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); prObj().busyUntil = d.toISOString().slice(0, 16); render(); save(); return; }
     if (e.target.id === 'kitNames'){ fillFromNames(true); render(); save(); return; }
     if (e.target.id === 'refresh') bridge.postMessage({ command:'refresh' });
-    if (e.target.id === 'copy') copy('copied');
-    if (e.target.id === 'copyQuick') copy('copiedQ');
   });
   bridge.onMessage(function(msg){
     if (!msg || msg.command !== 'state') return;
