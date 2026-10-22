@@ -4,9 +4,9 @@
 #
 # [tool.orcaslicer.plugin]
 # name = "Smeta 3D"
-# description = "Смета 3D-печати: цена, себестоимость и текст КП по каждой нарезке, прямо в панели рядом с 3D-видом."
+# description = "Смета 3D-печати: цена и себестоимость каждой нарезки и каждой модели, прямо в панели рядом с 3D-видом. Читает только G-code предпросмотра Orca."
 # author = "artemalv"
-# version = "1.4.1"
+# version = "1.4.2"
 # ///
 """Смета 3D-печати — плагин для OrcaSlicer 2.5+.
 
@@ -16,14 +16,13 @@
 и цена пластика запоминаются отдельно для каждого профиля Orca.
 
   Orca --SlicingJobComplete--> plugin.refresh() --panel.post(state)--> страница
-  страница --postMessage({command:'save', settings})--> plugin (settings.json в папке плагина)
+  страница --postMessage({command:'save', settings})--> plugin (конфиг возможности в Orca)
 """
 import glob
 import json
 import math
 import os
 import re
-import tempfile
 import time
 
 import orca
@@ -338,11 +337,26 @@ def parse_gcode(path):
 
 
 def temp_roots():
-    roots = []
-    for r in [tempfile.gettempdir(), os.environ.get("TEMP"), os.environ.get("TMP"), os.environ.get("TMPDIR")]:
-        if r and os.path.isdir(r) and r not in roots:
+    """Временные папки системы. tempfile.gettempdir() не используем: он пробует создать и удалить
+    файл в TEMP, а Orca спрашивает разрешение на каждую такую операцию."""
+    roots, seen = [], set()
+    cands = [os.environ.get("TEMP"), os.environ.get("TMP"), os.environ.get("TMPDIR")]
+    if os.environ.get("LOCALAPPDATA"):
+        cands.append(os.path.join(os.environ["LOCALAPPDATA"], "Temp"))
+    cands += ["/tmp", "/var/tmp"]
+    for r in cands:
+        if not r:
+            continue
+        k = os.path.normcase(os.path.abspath(r))
+        if k not in seen and os.path.isdir(r):
+            seen.add(k)
             roots.append(r)
     return roots
+
+
+def model_dirs():
+    """Папки, куда Orca пишет G-code предпросмотра. Плагин читает только их."""
+    return [os.path.join(r, "orcaslicer_model") for r in temp_roots()]
 
 
 def _gcode_complete(path):
@@ -364,18 +378,19 @@ def find_temp_gcode(newer_than=0.0):
     нет — самый новый G-code, записанный после начала нарезки."""
     pid = os.getpid()
     own, own_t, any_, any_t = None, newer_than, None, newer_than
-    for root in temp_roots():
-        for model_dir in glob.glob(os.path.join(root, "orcaslicer_model")) + glob.glob(os.path.join(root, "*", "orcaslicer_model")):
-            for path in glob.glob(os.path.join(glob.escape(model_dir), "*", "*", "Metadata", ".*.gcode")):
-                try:
-                    t = os.path.getmtime(path)
-                except OSError:
-                    continue
-                if os.path.basename(path).startswith(".%d." % pid):
-                    if t > own_t:
-                        own, own_t = path, t
-                elif t > any_t:
-                    any_, any_t = path, t
+    for model_dir in model_dirs():
+        if not os.path.isdir(model_dir):
+            continue
+        for path in glob.glob(os.path.join(glob.escape(model_dir), "*", "*", "Metadata", ".*.gcode")):
+            try:
+                t = os.path.getmtime(path)
+            except OSError:
+                continue
+            if os.path.basename(path).startswith(".%d." % pid):
+                if t > own_t:
+                    own, own_t = path, t
+            elif t > any_t:
+                any_, any_t = path, t
     if own:
         return own
     return any_ if newer_than > 0 else None
@@ -394,15 +409,6 @@ def model_parts():
 
 
 # ---------------------------------------------------------------- настройки
-
-def _storage_path():
-    try:
-        d = orca.host.plugin.storage()
-        os.makedirs(d, exist_ok=True)
-        return os.path.join(d, SETTINGS_FILE)
-    except Exception:
-        return None
-
 
 def _merge(saved):
     s = json.loads(json.dumps(DEFAULT_SETTINGS))
@@ -424,13 +430,6 @@ def load_settings(cap=None):
                 return _merge(saved)
         except Exception as e:
             print("Smeta 3D: конфиг Orca не прочитался:", e)
-    p = _storage_path()
-    if p and os.path.isfile(p):
-        try:
-            with open(p, "r", encoding="utf-8") as f:
-                return _merge(json.load(f))
-        except Exception as e:
-            print("Smeta 3D: не удалось прочитать настройки:", e)
     return _merge({})
 
 
@@ -442,14 +441,7 @@ def save_settings(s, cap=None):
                 return True
         except Exception as e:
             print("Smeta 3D: конфиг Orca не записался:", e)
-    p = _storage_path()
-    if not p:
-        return False
-    tmp = p + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(s, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, p)
-    return True
+    return False
 
 
 # ---------------------------------------------------------------- панель
@@ -1213,3 +1205,11 @@ def _safe(fn, default):
 class Smeta3DPlugin(orca.base):
     def register_capabilities(self):
         orca.register_capability(SmetaPanel)
+        # Одно разрешение при установке: читать папку G-code предпросмотра Orca. После него плагин
+        # больше ничего не спрашивает — других файлов, сети, команд и потоков он не трогает.
+        try:
+            dirs = model_dirs()
+            if dirs and hasattr(orca, "request_permissions"):
+                orca.request_permissions(fs_read=dirs)
+        except Exception as e:
+            print("Smeta 3D: запрос разрешения на чтение не прошёл:", e)
