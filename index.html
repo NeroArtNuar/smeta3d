@@ -494,6 +494,8 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <label class="field adv"><span class="lbl">Плотность поддержек</span><span class="inp"><select data-bind="sla.density"><option value="light">Лёгкие</option><option value="medium">Средние</option><option value="heavy">Сложные</option></select></span></label>
           <label class="field adv"><span class="lbl">Наклон</span><span class="inp"><input type="number" min="0" max="60" step="5" data-bind="sla.tilt"><em>°</em></span></label>
           <label class="check"><input type="checkbox" data-bind="sla.hollow">Полая</label>
+          <label class="field"><span class="lbl">Стол</span><span class="inp"><select data-bind="sla.share"><option value="shared">Общий с другими заказами</option><option value="own">Только этот заказ</option></select></span></label>
+          <label class="field adv"><span class="lbl">Загрузка стола</span><span class="inp"><input type="number" min="10" max="100" step="5" data-bind="sla.fill"><em>%</em></span></label>
           <label class="field adv"><span class="lbl">Стенка полой</span><span class="inp"><input type="number" min="0.8" max="10" step="0.1" data-bind="sla.wall"><em>мм</em></span></label>
         </div>
         <div class="grid" data-tech="sls">
@@ -871,7 +873,7 @@ const DEF_SEL = { fdm:{ printer:'d600', material:'abs' }, sla:{ printer:'isla600
 // старые значения по умолчанию, которые заменяются новыми, если пользователь их не менял
 const PROFILE_FIXES = { pla:{ minLayer:[6,4] }, plam:{ minLayer:[6,4] }, fuse1:{ recoat:[14,12], scanRate:[110,230] }, lisax:{ recoat:[16,25], scanRate:[60,100], cool:[0,120] }, eos396:{ recoat:[9,6], scanRate:[600,1500] } };
 const DEF_SLICER = { preset:'standard', nozzle:0.6, layer:0.3, walls:2, top:5, bottom:3, infill:15, supports:'auto', supportType:'tree', brim:false };
-const DEF_SLA = { preset:'draft', layer:0.1, supports:'auto', density:'medium', tilt:0, hollow:false, wall:2.5, washMin:20, washCost:120 };
+const DEF_SLA = { share:'shared', fill:60, preset:'draft', layer:0.1, supports:'auto', density:'medium', tilt:0, hollow:false, wall:2.5, washMin:20, washCost:120 };
 const DEF_SLS = { layer:0.11, packing:10, unpackMin:40 };
 const DEF_PART   = { name:'Стакан-корпус', qty:1, perPlate:0, postMin:3, inserts:0, insertPrice:12, paint:0, scaleLock:true };
 const DEF_MONEY  = { markup:100, adjust:0, minOrder:500, taxRev:0, vat:22, rate:600, setupMin:15, plateMin:5, cadH:0, cadRate:1500,
@@ -1716,7 +1718,10 @@ function fdmPlateS(it, n){
   let s = 0; for (const [c, a] of it.hist) s += c*Math.max(it.minLayer, n*a);
   return (s + n*(it.extraS || 0))*(it.k || 1);
 }
-const resinPlateS = (it, n) => (it.fixedS || 0) + n*(it.perPartS || 0);
+/* Доля стола: при общем столе постоянная часть (слои, разравнивание, подготовка, мойка) делится между заказами
+   по занятой площади — n деталей из вместимости cap при ожидаемой загрузке fill%. Не меньше 5% стола. */
+const plateShare = (it, n) => it.share > 0 ? Math.min(1, Math.max(0.05, n/(Math.max(1, it.cap || 1)*it.share/100))) : 1;
+const resinPlateS = (it, n) => (it.fixedS || 0)*plateShare(it, n) + n*(it.perPartS || 0);
 function chamberOn(it){ if (it && it.tech && it.tech !== 'fdm') return false; return it && it.chamber != null ? !!it.chamber : !!S.money.chamber; }
 /* Сроки: когда начнём и когда закончим. Если к сроку в очереди не успеть, а вне очереди — да, включается наценка */
 function tms(v){ if (!v) return null; const t = Date.parse(v); return Number.isFinite(t) ? t : null; }
@@ -1743,7 +1748,7 @@ function itemCost(it, m){
   const mt = S.materials.find(x => x.id === it.materialId) || material();
   const qty = Math.max(1, Math.round(it.qty));
   const waste = B.risk ? m.waste/100 : 0;
-  let plates, machineH, gramsNet, gramsTot, mat, detail = null, printH = 0, warmH = 0, chamberH = 0;
+  let plates, machineH, gramsNet, gramsTot, mat, detail = null, printH = 0, warmH = 0, chamberH = 0, shareSum = null;
   if (tech === 'sls'){
     detail = slsJobs(it, pr, mt, qty);
     plates = detail.jobs; machineH = detail.jobs*detail.jobH;
@@ -1753,11 +1758,12 @@ function itemCost(it, m){
     plates = Math.ceil(qty/pp);
     const full = Math.floor(qty/pp), rem = qty - full*pp;
     if (RESIN.has(tech)){
-      printH = (full*resinPlateS(it, pp) + (rem ? resinPlateS(it, rem) : 0))/3600; warmH = plates*pr.warmup/60;
+      shareSum = full*plateShare(it, pp) + (rem ? plateShare(it, rem) : 0);
+      printH = (full*resinPlateS(it, pp) + (rem ? resinPlateS(it, rem) : 0))/3600; warmH = shareSum*pr.warmup/60;
       machineH = printH + warmH;
       const mlTot = it.ml*qty*(1 + waste);
       gramsNet = it.ml*qty*mt.density; gramsTot = mlTot*mt.density;
-      mat = mlTot/1000*mt.price + plates*(it.plateCost || 0);
+      mat = mlTot/1000*mt.price + shareSum*(it.plateCost || 0);
       detail = { mlTot };
     } else {
       if (it.plateFree) plates = 0;   // деталь со стола из G-code: стол уже посчитан у первой детали этого стола
@@ -1772,14 +1778,14 @@ function itemCost(it, m){
   const watts = (+pr.power || 0) + (chamberOn(it) ? +pr.chamberPower || 0 : 0), kwhUsed = machineH*watts/1000;
   const energy = B.energy ? kwhUsed*(m._kwhEff ?? m.kwh) : 0;
   const plateMin = Number.isFinite(it.plateMin) ? it.plateMin : m.plateMin;
-  const plateLabH = B.labor ? plates*plateMin/60 : 0;
+  const plateLabH = B.labor ? (shareSum ?? plates)*plateMin/60 : 0;
   const plateLab = plateLabH*m.rate;
   const postH = B.post ? qty*it.postMin/60 : 0;
   const postLab = postH*m.rate;
   const parts = B.extras ? qty*(it.inserts*it.insertPrice + it.paint) : 0;
   const p = B.risk ? Math.min(0.6, Math.max(0, m.risk/100)) : 0;
   const risk = (mat + mach + energy + plateLab)*p/(1 - p);
-  return { tech, qty, plates, machineH, printH, warmH, chamberH, watts, kwhUsed, inserts: B.extras ? qty*it.inserts*it.insertPrice : 0, paint: B.extras ? qty*it.paint : 0, riskBase: mat + mach + energy + plateLab, gramsNet, gramsTot, mat, mach, energy, labor: plateLab + postLab, postLabH: postH, plateLabH, extra: parts, risk,
+  return { shareSum, tech, qty, plates, machineH, printH, warmH, chamberH, watts, kwhUsed, inserts: B.extras ? qty*it.inserts*it.insertPrice : 0, paint: B.extras ? qty*it.paint : 0, riskBase: mat + mach + energy + plateLab, gramsNet, gramsTot, mat, mach, energy, labor: plateLab + postLab, postLabH: postH, plateLabH, extra: parts, risk,
            cost: mat + mach + energy + plateLab + postLab + parts + risk, pr, mt, detail, plateMin };
 }
 function orderCost(items, m){
@@ -1813,6 +1819,8 @@ function orderCost(items, m){
   const days = Math.max(1, Math.ceil(machineH/(Math.max(1, m.printers)*Math.max(1, m.hoursPerDay))) + Math.ceil((postH + setupH + sum('plateLabH'))/8 - 0.25));
   const det = { setupH, cad: B.extras ? m.cadH*m.cadRate : 0, pack: B.extras ? +m.packaging || 0 : 0, printH:sum('printH'), warmH:sum('warmH'), chamberH:sum('chamberH'), kwhUsed:sum('kwhUsed'),
     plateLabH:sum('plateLabH'), postH:sum('postLabH'), inserts:sum('inserts'), paint:sum('paint'), riskBase:sum('riskBase'), night, kwhEff, adjust, rush, t };
+  const sh = lines.length === 1 && lines[0].c.shareSum != null && lines[0].it.share > 0 ? lines[0].c.shareSum/Math.max(1, lines[0].c.plates) : null;
+  det.share = sh;
   return { det, plan, rush, optD, optQ: optT ? +optT.q : 0, optAmt: preOpt*optD, lines, b, cost, byMarkup, net, minApplied, taxRev: noVat - net, vatAmt: client - noVat, client, profit: net - cost,
            margin: net > 0 ? (net - cost)/net*100 : 0, machineH, gramsNet: sum('gramsNet'), grams: sum('gramsTot'), plates: sum('plates'), qty: sum('qty'), days,
            techs: [...new Set(lines.map(l => l.c.tech))] };
@@ -1853,6 +1861,7 @@ function currentItem(){
     else { if (!lastEst) return null; it.grams = lastEst.grams; it.hours = lastEst.timeS/3600; it.hist = lastEst.hist; it.minLayer = lastEst.minLayer; it.extraS = lastEst.extraS; it.k = lastEst.k; if (useOrca()) it.orcaStale = true; }
   } else if (RESIN.has(tech)){
     it.plateMin = +S.sla.washMin || 0; it.plateCost = +S.sla.washCost || 0;
+    it.cap = Math.max(1, autoPP || +it.perPlate || 1); it.share = S.sla.share === 'shared' ? Math.min(100, Math.max(10, +S.sla.fill || 60)) : 0;
     if (useManual()){ if (!(S.manualResin.ml > 0)) return null; it.ml = S.manualResin.ml; it.fixedS = ((+S.manualResin.h || 0)*3600 + (+S.manualResin.m || 0)*60); it.perPartS = 0; }
     else { if (!lastEst) return null; it.ml = lastEst.ml; it.fixedS = lastEst.fixedS; it.perPartS = lastEst.perPartS; }
     it.grams = it.ml*mt.density;
@@ -3024,6 +3033,7 @@ function costRowsHTML(r, single){
     mat: matLines,
     mach: L(RESIN.has(pr0.tech) ? (pr0.tech === 'sla' ? 'Печать: лазер и разравнивание слоёв' : 'Печать: засветка и подъём слоёв') : 'Печать по слайсеру', `${nf(d.printH,2)} ч`) + L(`${RESIN.has(pr0.tech) ? 'Подготовка ванны' : 'Прогрев стола'}: ${r.plates} × ${nf(pr0.warmup)} мин`, `${nf(d.warmH,2)} ч`)
       + (d.chamberH > 0 ? L(`Прогрев камеры: ${r.plates} × ${nf(pr0.chamberMin)} мин`, `${nf(d.chamberH,2)} ч`) : '')
+      + (d.share != null ? L(`Доля общего стола (загрузка ${nf(it.it.share)}%)`, `${nf(d.share*100, 1)}%`) : '')
       + L(`Амортизация: ${nf(pr0.price)} ₽ ÷ ${nf(pr0.life)} ч`, `${nf(pr0.price/Math.max(1, pr0.life),2)} ₽/ч`) + L('Расходники и ремонт', `${nf(pr0.maint,2)} ₽/ч`)
       + L(`Итого ${nf(r.machineH,2)} ч × ${nf(machRate,2)} ₽/ч`, rub(r.b.mach,2)),
     energy: L(`Мощность: принтер ${nf(pr0.power)} Вт${d.chamberH > 0 ? ` + камера ${nf(pr0.chamberPower)} Вт` : ''}`, `${nf(d.kwhUsed,2)} кВт·ч`)
@@ -3713,6 +3723,8 @@ const CAPS = {
   'money.deadline':'Срок клиента. Пусто — без срока.', 'money.busyUntil':'Когда принтер освободится от других заказов.', 'money.start':'Пусто — как только принтер свободен. Влияет на ночной тариф.',
   'money.rushPct':'Включается сама, если успеть можно только вне очереди.',
   'money.mgrTol':'Насколько в «Расширенном» можно сдвинуть наценку и скидку.',
+  'sla.share':'Общий: время слоёв и мойки делится с другими заказами по занятой площади. «Только этот заказ» — платит за весь стол.',
+  'sla.fill':'Насколько обычно заполнен стол заказами. Меньше — дороже штучные детали.',
   'sla.layer':'Промышленный SLA обычно 0,1 мм; тоньше — глаже, но дольше.', 'sla.supports':'На платформе — только для плоских деталей без нависаний.',
   'sla.density':'Сложные — для тяжёлых и крупных деталей, связи между опорами.', 'sla.tilt':'Наклон уменьшает площадь слоя и отрыв, но добавляет опор.',
   'sla.wall':'Полая деталь экономит смолу; нужны дренажные отверстия.', 'sla.washMin':'Мойка в спирте и УФ-дозасветка — на каждый стол.', 'sla.washCost':'Спирт, перчатки, фильтры — на каждый стол.'
