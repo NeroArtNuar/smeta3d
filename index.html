@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Калькулятор стоимости FDM 3D-печати: нарезка модели прямо в браузере, G-code из OrcaSlicer, сроки, ночной тариф, текст КП.">
+<meta name="description" content="Калькулятор стоимости 3D-печати FDM и SLA/DLP: нарезка модели в браузере, поддержки, G-code из OrcaSlicer, сроки, ночной тариф, текст КП.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<title>Смета FDM-печати</title>
+<title>Смета 3D-печати</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@600&display=swap">
@@ -57,6 +57,24 @@
 .card-h,.sum-h{background:linear-gradient(90deg,var(--accent-soft),transparent 75%)}
 .card-h h2,.sum-h h2{color:var(--accent)}
 :root[data-pal="grad"] .brand svg rect{fill:url(#palGrad)}
+.tech2 button{font-weight:600;min-width:52px}
+.tech2 button.on,#techSub button.on{background:var(--accent);color:var(--on-accent)}
+.subtech{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
+.toolbar button.on#btnSup{background:var(--accent);color:var(--on-accent)}
+.pop{position:absolute;left:10px;bottom:52px;z-index:6;width:min(300px,calc(100% - 20px));background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.22);padding:10px;display:flex;flex-direction:column;gap:6px}
+.pop[hidden]{display:none}
+.pop-h{margin:0 0 2px;font:600 12.5px var(--f-display);color:var(--accent);display:flex;justify-content:space-between}
+.pop-h b{font:600 13px var(--f-mono);color:var(--fg)}
+.pop [data-sup]{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 9px;cursor:pointer;color:var(--fg)}
+.pop [data-sup] small{color:var(--muted);font-size:11.5px}
+.pop [data-sup]:hover,.pop [data-sup].on{border-color:var(--accent);background:var(--accent-soft)}
+.pop-info{color:var(--muted);font:11.5px var(--f-mono)}
+.pop-link{border:0;background:none;color:var(--accent);font-weight:600;font-size:12.5px;text-align:left;padding:2px 0;cursor:pointer}
+.pop input[type=range]{width:100%;accent-color:var(--accent)}
+.pop-row{display:flex;gap:4px;align-items:center}
+.pop-row .inp{flex:1}
+.pop-row button{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:5px 8px;font:12px var(--f-mono);cursor:pointer;color:var(--fg)}
+.pop-row button:hover{border-color:var(--accent)}
 .fdm-tag{font:700 11px var(--f-mono);letter-spacing:.08em;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:2px 6px}
 .field .cap{font-size:11.5px;line-height:1.35;color:var(--muted);margin-top:2px}
 .hint.how{margin:0 0 4px;font-size:12.5px}
@@ -279,10 +297,10 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
   <div class="top-in">
     <div class="brand">
       <svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><defs><linearGradient id="palGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(150 58% 36%)"/><stop offset="1" stop-color="hsl(280 50% 48%)"/></linearGradient></defs><rect x="1" y="1" width="32" height="32" rx="8" fill="var(--accent)"/><path d="M11 8h12v6l-3 4h-6l-3-4z" fill="var(--on-accent)"/><path d="M15.5 18h3l-1.5 3z" fill="var(--on-accent)"/><path d="M7 26h20M9 23h16" stroke="var(--on-accent)" stroke-width="2" stroke-linecap="round" opacity=".75"/></svg>
-      <h1>Смета FDM-печати</h1>
+      <h1>Смета 3D-печати</h1>
     </div>
     <div class="tech" id="techSeg" hidden><button type="button" data-tech="fdm">FDM</button></div>
-    <span class="fdm-tag">FDM</span>
+    <div class="seg tech2" id="techMain" role="group" aria-label="Технология"><button type="button" data-main="fdm" title="Печать пластиковой нитью">FDM</button><button type="button" data-main="resin" title="Фотополимер: SLA (лазер) или DLP (проектор)">SLA</button></div>
     <a class="site-link" href="plugin.html">Плагин для OrcaSlicer</a>
     <div class="seg" id="modeSeg" role="group" aria-label="Режим калькулятора">
       <button type="button" data-mode="simple" title="Только то, что нужно для цены">Простой</button>
@@ -318,15 +336,33 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <div id="viewer"></div>
           <div class="ov tl"><span class="pill" id="pillName">—</span></div>
           <div class="ov bl">
-            <div class="toolbar adv">
-              <button type="button" data-rot="x" title="Повернуть на 90° вокруг X">↻X</button>
-              <button type="button" data-rot="y" title="Повернуть на 90° вокруг Y">↻Y</button>
-              <button type="button" data-rot="z" title="Повернуть на 90° вокруг Z">↻Z</button>
-              <button type="button" id="btnFlat" title="Положить на самую большую плоскую грань">На грань</button>
-              <button type="button" id="btnOrient" title="Выбрать самое выгодное положение для текущей технологии">Подобрать</button>
+            <div class="toolbar">
+              <button type="button" class="adv" data-rot="x" title="Повернуть на 90° вокруг X">↻X</button>
+              <button type="button" class="adv" data-rot="y" title="Повернуть на 90° вокруг Y">↻Y</button>
+              <button type="button" class="adv" data-rot="z" title="Повернуть на 90° вокруг Z">↻Z</button>
+              <button type="button" class="adv" id="btnFlat" title="Положить на самую большую плоскую грань">На грань</button>
+              <button type="button" class="adv" id="btnOrient" title="Выбрать самое выгодное положение для текущей технологии">Подобрать</button>
               <button type="button" id="btnRepair" title="Закрыть дыры, развернуть нормали, убрать лишние грани">Починить</button>
+              <button type="button" id="btnSup" title="Построить поддержки и показать их на модели" data-tech="fdm sla dlp lcd">Поддержки</button>
+              <button type="button" id="btnScale" title="Изменить масштаб модели">Масштаб</button>
             </div>
             <div class="toolbar"><button type="button" id="btnOver" class="on" data-tech="fdm sla dlp lcd" title="Подсветить нависания круче 45°">Нависания</button><button type="button" id="btnCam" title="Вернуть камеру">⟲</button></div>
+          </div>
+          <div class="pop" id="supPop" hidden>
+            <p class="pop-h">Поддержки</p>
+            <button type="button" data-sup="light"><b>Лёгкие</b><small>редкие тонкие опоры, легко снимать</small></button>
+            <button type="button" data-sup="medium"><b>Средние</b><small>обычный шаг и толщина</small></button>
+            <button type="button" data-sup="heavy"><b>Сложные</b><small>частые толстые опоры со связями — для крупных и тяжёлых</small></button>
+            <small class="pop-info" id="supInfo"></small>
+            <button type="button" class="pop-link" id="supClear">Убрать поддержки</button>
+          </div>
+          <div class="pop" id="scalePop" hidden>
+            <p class="pop-h">Масштаб <b id="scaleVal">100%</b></p>
+            <input type="range" id="scaleRange" min="10" max="400" step="1" aria-label="Масштаб, %">
+            <div class="pop-row"><span class="inp"><input type="number" id="scaleNum" min="1" max="10000" step="0.1" aria-label="Масштаб, %"><em>%</em></span>
+              <button type="button" data-scale="50">50</button><button type="button" data-scale="100">100</button><button type="button" data-scale="200">200</button></div>
+            <button type="button" class="pop-link" id="scaleFit">Вписать в стол принтера</button>
+            <small class="pop-info" id="scaleDims"></small>
           </div>
           <div class="drop-hint" id="dropHint" hidden>Отпустите файлы</div>
           <div class="busy" id="busy" hidden><span id="busyText">Считаю…</span></div>
@@ -376,10 +412,14 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <label class="field adv"><span class="lbl">Тип поддержек</span><span class="inp"><select data-bind="slicer.supportType"><option value="tree">Древовидные</option><option value="normal">Обычные</option></select></span></label>
           <label class="check adv"><input type="checkbox" data-bind="slicer.brim">Кайма</label>
         </div>
+        <div class="subtech" data-tech="sla dlp lcd">
+          <div class="seg" id="techSub" role="group" aria-label="Вид фотополимерной печати"><button type="button" data-sub="sla">SLA · лазер</button><button type="button" data-sub="dlp">DLP · проектор</button></div>
+          <small class="cap" id="techSubNote"></small>
+        </div>
         <div class="grid" data-tech="sla dlp lcd">
           <label class="field adv"><span class="lbl">Слой</span><span class="inp"><select data-bind="sla.layer" data-num><option value="0.025">0.025</option><option value="0.03">0.03</option><option value="0.05">0.05</option><option value="0.07">0.07</option><option value="0.1">0.10</option></select><em>мм</em></span></label>
           <label class="field"><span class="lbl">Поддержки</span><span class="inp"><select data-bind="sla.supports"><option value="auto">На поддержках</option><option value="off">На платформе</option></select></span></label>
-          <label class="field adv"><span class="lbl">Плотность поддержек</span><span class="inp"><select data-bind="sla.density"><option value="light">Лёгкие</option><option value="medium">Средние</option><option value="heavy">Плотные</option></select></span></label>
+          <label class="field adv"><span class="lbl">Плотность поддержек</span><span class="inp"><select data-bind="sla.density"><option value="light">Лёгкие</option><option value="medium">Средние</option><option value="heavy">Сложные</option></select></span></label>
           <label class="field adv"><span class="lbl">Наклон</span><span class="inp"><input type="number" min="0" max="60" step="5" data-bind="sla.tilt"><em>°</em></span></label>
           <label class="check"><input type="checkbox" data-bind="sla.hollow">Полая</label>
           <label class="field adv"><span class="lbl">Стенка полой</span><span class="inp"><input type="number" min="0.8" max="10" step="0.1" data-bind="sla.wall"><em>мм</em></span></label>
@@ -486,7 +526,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <label class="field" data-block="labor" data-tech="fdm"><span class="lbl">Снятие со стола</span><span class="inp"><input type="number" min="0" step="1" data-bind="money.plateMin"><em>мин</em></span></label>
           <label class="field" data-block="energy"><span class="lbl">Электроэнергия</span><span class="inp"><input type="number" min="0" step="0.1" data-bind="money.kwh"><em>₽/кВт·ч</em></span></label>
           <label class="check" data-block="energy"><input type="checkbox" data-bind="money.twoRate">Два тарифа: день / ночь</label>
-          <label class="check" data-block="energy"><input type="checkbox" data-bind="money.chamber">Греть камеру (для STL)</label>
+          <label class="check" data-block="energy" data-tech="fdm"><input type="checkbox" data-bind="money.chamber">Греть камеру (для STL)</label>
           <label class="field" data-block="risk"><span class="lbl" title="Доля деталей, которые придётся печатать заново">Брак</span><span class="inp"><input type="number" min="0" max="60" step="1" data-bind="money.risk"><em>%</em></span></label>
           <label class="field" data-block="risk" data-tech="fdm sla dlp lcd"><span class="lbl" title="FDM: продувка, концы катушек. Смола: остаётся на поддержках и в ванне">Потери материала</span><span class="inp"><input type="number" min="0" max="50" step="1" data-bind="money.waste"><em>%</em></span></label>
           <label class="field"><span class="lbl">Принтеров</span><span class="inp"><input type="number" min="1" step="1" data-bind="money.printers"><em>шт</em></span></label>
@@ -676,7 +716,7 @@ function gcSummary(text, objs){
    ====================================================================== */
 const FIL_AREA = Math.PI * 0.875 * 0.875; // мм² сечения прутка 1.75 = см³ на метр
 const OVERHANG_NZ = -Math.cos(Math.PI / 4); // нависание круче 45°
-const TECHS = ['fdm']; // калькулятор только для FDM
+const TECHS = ['fdm','sla','dlp']; // FDM и фотополимер: SLA (лазер) или DLP (проектор)
 const RESIN = new Set(['sla','dlp','lcd']);
 const TECH = {
   fdm: { name:'FDM', long:'FDM (печать пластиковой нитью)',               plates:'Столов',   mat:'Пластик' },
@@ -703,9 +743,13 @@ const DEF_PRINTERS = [
   { id:'voron', tech:'fdm', name:'Voron 2.4 (350)',        bedX:350,bedY:350,bedZ:340, price:180000, life:8000, maint:18, power:250, warmup:10,maxFlow:30, vOuter:200,vInner:300,vInfill:300,vSolid:250,vSupport:150,vFirst:60,accel:7000, ...P_OV, timeCal:1 },
   { id:'plus4', tech:'fdm', name:'Qidi Plus4',             bedX:305,bedY:305,bedZ:280, price:85000,  life:6000, maint:15, power:220, warmup:8, maxFlow:28, ...P_BAMBU, timeCal:1 },
   // SLA (лазер): время слоя = обслуживание слоя (отрыв, разравнивание) + площадь сечений ÷ скорость обхода лазером
+  // промышленные: ванна, слой 0,1 мм, разравнивание ножом ~12 с, лазер обходит сотни мм² в секунду. Цены примерные
+  { id:'isla600',tech:'sla', name:'Промышленный SLA 600×600×400', bedX:600,bedY:600,bedZ:400, price:9000000, life:30000, maint:400, power:2500, warmup:20, overhead:12, areaRate:600, timeCal:1 },
+  { id:'isla450',tech:'sla', name:'Промышленный SLA 450×450×350', bedX:450,bedY:450,bedZ:350, price:6000000, life:30000, maint:300, power:2000, warmup:20, overhead:11, areaRate:450, timeCal:1 },
   { id:'form3p',tech:'sla', name:'Formlabs Form 3+',       bedX:145,bedY:145,bedZ:185, price:400000,  life:6000, maint:60, power:70,  warmup:10, overhead:8,  areaRate:45, timeCal:1 },
   { id:'form3l',tech:'sla', name:'Formlabs Form 3L (2 лазера)', bedX:335,bedY:200,bedZ:300, price:1500000, life:8000, maint:150,power:150, warmup:15, overhead:14, areaRate:90, timeCal:1 },
   // DLP и LCD: слой засвечивается целиком, время не зависит от числа деталей
+  { id:'idlp',  tech:'dlp', name:'Промышленный DLP 190×120×200',  bedX:192,bedY:120,bedZ:200, price:3000000, life:20000,maint:150, power:400, warmup:10, exp:1.2, bottomExp:10, bottomLayers:4, lift:3.0, timeCal:1 },
   { id:'d2',    tech:'dlp', name:'Anycubic Photon D2 (DLP)',     bedX:131,bedY:73, bedZ:165, price:35000,   life:5000, maint:12, power:55,  warmup:5, exp:1.6, bottomExp:20, bottomLayers:4, lift:4.0, timeCal:1 },
   { id:'asiga', tech:'dlp', name:'Asiga MAX UV (DLP)',           bedX:119,bedY:67, bedZ:75,  price:1800000, life:15000,maint:90, power:120, warmup:8, exp:0.9, bottomExp:8,  bottomLayers:3, lift:2.4, timeCal:1 },
   { id:'sat4u', tech:'lcd', name:'Elegoo Saturn 4 Ultra 16K',    bedX:211,bedY:118,bedZ:220, price:45000,  life:3000, maint:25, power:70,  warmup:5, exp:2.2, bottomExp:25, bottomLayers:4, lift:2.6, timeCal:1 },
@@ -728,6 +772,7 @@ const DEF_MATERIALS = [
   { id:'pacf',   tech:'fdm', name:'PA6-CF (нейлон)',   price:5500, density:1.12, maxFlow:12, minLayer:6 },
   { id:'pc',     tech:'fdm', name:'PC (поликарбонат)', price:3500, density:1.20, maxFlow:14, minLayer:6 },
   { id:'ppsgf',  tech:'fdm', name:'PPS-GF',            price:5500, density:1.30, maxFlow:10, minLayer:8 },
+  { id:'r_ind',  tech:'resin', name:'Промышленная SLA-смола', price:9000, density:1.13, expMult:1.0 },
   { id:'r_std',  tech:'resin', name:'Стандартная смола',     price:2500, density:1.10, expMult:1.0 },
   { id:'r_abs',  tech:'resin', name:'ABS-like смола',        price:3000, density:1.12, expMult:1.15 },
   { id:'r_wash', tech:'resin', name:'Водосмываемая смола',   price:3200, density:1.10, expMult:1.1 },
@@ -739,11 +784,11 @@ const DEF_MATERIALS = [
   { id:'pa12gf', tech:'sls', name:'PA12 GF (стекловолокно)',     price:11500, density:1.30, bulk:0.62, refresh:30 },
   { id:'tpu90',  tech:'sls', name:'TPU 90A',                     price:14000, density:1.10, bulk:0.45, refresh:20 }
 ];
-const DEF_SEL = { fdm:{ printer:'d600', material:'abs' }, sla:{ printer:'form3p', material:'r_std' }, dlp:{ printer:'d2', material:'r_std' }, lcd:{ printer:'sat4u', material:'r_std' }, sls:{ printer:'fuse1', material:'pa12' } };
+const DEF_SEL = { fdm:{ printer:'d600', material:'abs' }, sla:{ printer:'isla600', material:'r_ind' }, dlp:{ printer:'idlp', material:'r_std' }, lcd:{ printer:'sat4u', material:'r_std' }, sls:{ printer:'fuse1', material:'pa12' } };
 // старые значения по умолчанию, которые заменяются новыми, если пользователь их не менял
 const PROFILE_FIXES = { pla:{ minLayer:[6,4] }, plam:{ minLayer:[6,4] }, fuse1:{ recoat:[14,12], scanRate:[110,230] }, lisax:{ recoat:[16,25], scanRate:[60,100], cool:[0,120] }, eos396:{ recoat:[9,6], scanRate:[600,1500] } };
 const DEF_SLICER = { preset:'standard', nozzle:0.6, layer:0.3, walls:2, top:5, bottom:3, infill:15, supports:'auto', supportType:'tree', brim:false };
-const DEF_SLA = { preset:'standard', layer:0.05, supports:'auto', density:'medium', tilt:0, hollow:false, wall:2.5, washMin:20, washCost:120 };
+const DEF_SLA = { preset:'draft', layer:0.1, supports:'auto', density:'medium', tilt:0, hollow:false, wall:2.5, washMin:20, washCost:120 };
 const DEF_SLS = { layer:0.11, packing:10, unpackMin:40 };
 const DEF_PART   = { name:'Стакан-корпус', qty:1, perPlate:0, postMin:3, inserts:0, insertPrice:12, paint:0 };
 const DEF_MONEY  = { markup:100, adjust:0, minOrder:500, taxRev:0, vat:22, rate:600, setupMin:15, plateMin:5, cadH:0, cadRate:1500,
@@ -821,6 +866,7 @@ function loadSel(){
   const sel = clone(DEF_SEL);
   for (const t of TECHS) if (saved[t]) sel[t] = { ...sel[t], ...saved[t] };
   if (saved.sla && saved.sla.printer && !['form3p','form3l'].includes(saved.sla.printer) && !saved.lcd) sel.lcd = { ...sel.lcd, ...saved.sla }, sel.sla = clone(DEF_SEL.sla);
+  if (!store.get('v4sla', false)){ sel.sla = clone(DEF_SEL.sla); sel.dlp = clone(DEF_SEL.dlp); store.set('v4sla', true); }
   const oldP = store.get('printerId', null);
   if (!store.get('sel', null) && oldP) sel.fdm = { printer: oldP, material: store.get('materialId', 'pla') };
   return sel;
@@ -840,7 +886,8 @@ const S = {
   printers: loadList('printers', DEF_PRINTERS),
   materials: loadList('materials', DEF_MATERIALS),
   sel: loadSel(),
-  tech: 'fdm',
+  tech: TECHS.includes(savedTech) ? savedTech : 'fdm',
+  resinSub: store.get('resinSub', 'sla') === 'dlp' ? 'dlp' : 'sla',
   slicer: { ...DEF_SLICER, ...store.get('slicer', {}) },
   sla: { ...DEF_SLA, ...store.get('sla', {}) },
   sls: { ...DEF_SLS, ...store.get('sls', {}) },
@@ -861,7 +908,7 @@ const S = {
   eng: !!store.get('eng', false),
   pal: 'grad'
 };
-const SAVE_KEYS = ['printers','materials','sel','tech','slicer','sla','sls','part','money','manual','manualResin','massCal','source','basket','blocks','mode','orca','eng'];
+const SAVE_KEYS = ['printers','materials','sel','tech','slicer','sla','sls','part','money','manual','manualResin','massCal','source','basket','blocks','mode','orca','eng','resinSub'];
 /* Ставки дублируются в ваш аккаунт Claude (база страницы): открываются на любом устройстве */
 let cloudDoc = null, cloudT = null;
 function cloudSave(){
@@ -1410,7 +1457,8 @@ function estimatePart(st, sl, pr, mat, massCal){
     act[L] = ext + trv;
   }
   let supV = 0;
-  if (sl.supports === 'auto' && st.overProj > 25) supV = st.supColumn * (sl.supportType === 'tree' ? 0.09 : 0.15) + st.overProj * 2 * h * 0.8;
+  if (st.userSup && !st.userSup.resin) supV = st.userSup.vol;
+  else if (sl.supports === 'auto' && st.overProj > 25) supV = st.supColumn * (sl.supportType === 'tree' ? 0.09 : 0.15) + st.overProj * 2 * h * 0.8;
   const brimV = sl.brim ? 2*(st.dimX + st.dimY) * 5 * h : 0;
   // Замедление на нависаниях: доля ширины линии без опоры = h·tgθ / w; пороги 25/50/75% как в Orca и Bambu Studio
   let tOv = 0;
@@ -1434,7 +1482,7 @@ function estimatePart(st, sl, pr, mat, massCal){
     row('Внутренние периметры', '#d9a521', vol.inner, tm.inner),
     row('Сплошные слои', '#8a63d2', vol.solid, tm.solid),
     row(`Заполнение ${sl.infill}%`, '#c8423b', vol.infill, tm.infill),
-    row('Поддержки', '#2e9e74', supV, tSup),
+    row(st.userSup && !st.userSup.resin ? `Поддержки: ${SUP_NAMES[st.userSup.type].toLowerCase()}, ${st.userSup.n} опор` : 'Поддержки', '#2e9e74', supV, tSup),
     row('Кайма', '#2a8fb0', brimV, tBrim)
   ].filter(r => r.vol > 0.5);
   if (tOv > 1) rows.push(row('Замедление на нависаниях и мостах', '#4b7bd1', 0, tOv));
@@ -1489,10 +1537,12 @@ function estimateSLA(st, s, pr, mat, massCal){
   const kind = pr.tech, V = effVolume(st);
   let partV = V, hollowed = false;
   if (s.hollow){ const sh = resinShell(st, s.wall); if (sh < V*0.98){ partV = sh; hollowed = true; } }
-  const th = (s.tilt || 0)*Math.PI/180, onSup = s.supports !== 'off';
+  const us = st.userSup && st.userSup.resin ? st.userSup : null;
+  const th = us ? 0 : (s.tilt || 0)*Math.PI/180, onSup = !!us || s.supports !== 'off';
   const height = (th > 0 ? st.dimZ*Math.cos(th) + Math.max(st.dimX, st.dimY)*Math.sin(th) : st.dimZ) + (onSup ? 5 : 0);
   let supV = 0;
-  if (onSup){
+  if (us) supV = us.vol;
+  else if (onSup){
     const kd = { light:0.6, medium:1, heavy:1.5 }[s.density] || 1;
     const raft = st.dimX*st.dimY*0.7*0.35;
     supV = (st.supColumn*0.035 + st.overProj*0.25 + raft)*kd*(1 + Math.sin(th));
@@ -1513,7 +1563,7 @@ function estimateSLA(st, s, pr, mat, massCal){
   }
   const rows = [
     { name: hollowed ? `Деталь, полая (стенка ${s.wall} мм)` : 'Деталь', c:'#0b6a89', ml: partV/1000*massCal },
-    { name: 'Поддержки и подложка', c:'#2e9e74', ml: supV/1000*massCal }
+    { name: us ? `Поддержки: ${SUP_NAMES[us.type].toLowerCase()}, ${us.n} опор` : 'Поддержки и подложка', c:'#2e9e74', ml: supV/1000*massCal }
   ].filter(r => r.ml > 0.0005);
   rows.forEach(r => r.grams = r.ml*mat.density);
   return { kind, ml, grams: ml*mat.density, mlRaw: (partV + supV)/1000, fixedS, perPartS, plateS: fixedS + perPartS, plateRaw: (fixedS + perPartS)/k,
@@ -1571,7 +1621,7 @@ function fdmPlateS(it, n){
   return (s + n*(it.extraS || 0))*(it.k || 1);
 }
 const resinPlateS = (it, n) => (it.fixedS || 0) + n*(it.perPartS || 0);
-function chamberOn(it){ return it && it.chamber != null ? !!it.chamber : !!S.money.chamber; }
+function chamberOn(it){ if (it && it.tech && it.tech !== 'fdm') return false; return it && it.chamber != null ? !!it.chamber : !!S.money.chamber; }
 /* Сроки: когда начнём и когда закончим. Если к сроку в очереди не успеть, а вне очереди — да, включается наценка */
 function tms(v){ if (!v) return null; const t = Date.parse(v); return Number.isFinite(t) ? t : null; }
 function planJob(hours){
@@ -1607,7 +1657,8 @@ function itemCost(it, m){
     plates = Math.ceil(qty/pp);
     const full = Math.floor(qty/pp), rem = qty - full*pp;
     if (RESIN.has(tech)){
-      machineH = (full*resinPlateS(it, pp) + (rem ? resinPlateS(it, rem) : 0))/3600 + plates*pr.warmup/60;
+      printH = (full*resinPlateS(it, pp) + (rem ? resinPlateS(it, rem) : 0))/3600; warmH = plates*pr.warmup/60;
+      machineH = printH + warmH;
       const mlTot = it.ml*qty*(1 + waste);
       gramsNet = it.ml*qty*mt.density; gramsTot = mlTot*mt.density;
       mat = mlTot/1000*mt.price + plates*(it.plateCost || 0);
@@ -2041,22 +2092,213 @@ async function loadGcode(f, base){
   S.part.name = base; syncInputs(); recalc();
   toast(g.grams || g.machineS ? `G-code прочитан: ${f.name}` : `${f.name}: в файле нет сводки слайсера`);
 }
+
+/* ======================================================================
+   ПОДДЕРЖКИ: строим опоры под нависаниями и показываем их на модели
+   Точки опоры — по сетке на гранях, смотрящих вниз круче порога. Из каждой точки луч вниз:
+   опора встаёт на стол или на поверхность детали ниже. Объём опор идёт в расчёт.
+   Смола: деталь поднимается над платформой, опоры нужны и под дном.
+   ====================================================================== */
+const SUP_NAMES = { light:'Лёгкие', medium:'Средние', heavy:'Сложные' };
+let supObj = null, supState = null;
+function supParams(type, resin){
+  // sp — шаг опор, мм; r — радиус ствола; tip — радиус касания; thr — угол нависания от вертикали, круче которого нужна опора
+  const P = resin ? {
+    light: { sp:4.0, r:0.45, tip:0.22, tipL:1.6, thr:40, brace:0,  pad:1.4 },
+    medium:{ sp:2.6, r:0.60, tip:0.32, tipL:1.8, thr:30, brace:0,  pad:1.8 },
+    heavy: { sp:1.8, r:0.80, tip:0.42, tipL:2.0, thr:20, brace:7,  pad:2.2 } }[type]
+  : {
+    light: { sp:7.0, r:0.60, tip:0.40, tipL:1.2, thr:60, brace:0,  pad:2.0 },
+    medium:{ sp:5.0, r:0.75, tip:0.50, tipL:1.2, thr:50, brace:0,  pad:2.4 },
+    heavy: { sp:3.5, r:0.95, tip:0.60, tipL:1.2, thr:40, brace:10, pad:3.0 } }[type];
+  return { ...P, lift: resin ? 5 : 0 };
+}
+function clearSupports(silent){
+  if (supObj && modelGroup){ modelGroup.remove(supObj); supObj.geometry.dispose(); }
+  supObj = null; supState = null;
+  if (mesh && mesh.st) delete mesh.st.userSup;
+  if (typeof modelObj !== 'undefined' && modelObj) modelObj.position.z = 0;
+  renderSupBtn();
+  if (typeof needRender !== 'undefined') needRender = true;
+  if (!silent) recalc();
+}
+function renderSupBtn(){
+  const b = $('btnSup'); if (!b) return;
+  b.textContent = 'Поддержки'; b.title = supState ? `Построены: ${SUP_NAMES[supState.type].toLowerCase()}, ${nf(supState.n)} опор` : 'Построить поддержки и показать их на модели';
+  b.classList.toggle('on', !!supState);
+  document.querySelectorAll('#supPop [data-sup]').forEach(x => x.classList.toggle('on', !!supState && x.dataset.sup === supState.type));
+  const info = $('supInfo'); if (info) info.textContent = supState ? `${nf(supState.n)} опор · ${nf(supState.vol/1000, 2)} см³ · ${RESIN.has(S.tech) ? nf(supState.vol/1000*material().density, 1) + ' г смолы' : nf(supState.vol/1000*material().density, 1) + ' г пластика'}` : 'Поддержки ещё не построены';
+}
+async function buildSupports(type){
+  if (!mesh || !mesh.st) return;
+  busy(true, 'Строю поддержки…'); await tick();
+  try {
+    const resin = RESIN.has(S.tech), P = supParams(type, resin), pos = mesh.pos, n = pos.length/9;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < pos.length; i += 3){ const x = pos[i], y = pos[i+1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const lim = -Math.sin(P.thr*Math.PI/180);
+    // нормали, нависающие грани и их площадь в плане — для шага опор
+    const nz = new Float32Array(n); let ovA = 0;
+    for (let t = 0; t < n; t++){
+      const o = t*9, ax = pos[o+3]-pos[o], ay = pos[o+4]-pos[o+1], az = pos[o+5]-pos[o+2], bx = pos[o+6]-pos[o], by = pos[o+7]-pos[o+1], bz = pos[o+8]-pos[o+2];
+      const cx = ay*bz - az*by, cy = az*bx - ax*bz, cz = ax*by - ay*bx, l = Math.hypot(cx, cy, cz) || 1;
+      nz[t] = cz/l;
+      if (nz[t] < lim) ovA += Math.abs(cz)/2;
+    }
+    let sp = P.sp;
+    const MAXP = 6000;
+    if (ovA/(sp*sp) > MAXP) sp *= Math.sqrt(ovA/(sp*sp)/MAXP);
+    // сетка треугольников в плане для лучей вниз
+    const cell = Math.max(2, sp), gx = Math.max(1, Math.ceil((x1 - x0)/cell) + 1), gy = Math.max(1, Math.ceil((y1 - y0)/cell) + 1);
+    const cnt = new Int32Array(gx*gy + 1);
+    const span = t => { const o = t*9; const ax0 = Math.min(pos[o], pos[o+3], pos[o+6]), ax1 = Math.max(pos[o], pos[o+3], pos[o+6]), ay0 = Math.min(pos[o+1], pos[o+4], pos[o+7]), ay1 = Math.max(pos[o+1], pos[o+4], pos[o+7]);
+      return [Math.floor((ax0 - x0)/cell), Math.floor((ax1 - x0)/cell), Math.floor((ay0 - y0)/cell), Math.floor((ay1 - y0)/cell)]; };
+    for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) cnt[j*gx + i + 1]++; }
+    for (let k = 1; k < cnt.length; k++) cnt[k] += cnt[k-1];
+    const fill = cnt.slice(), tris = new Int32Array(cnt[cnt.length-1]);
+    for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) tris[fill[j*gx + i]++] = t; }
+    // высота грани t над точкой (x, y) или NaN, если точка вне её проекции
+    const zAt = (t, x, y) => {
+      const o = t*9, ax = pos[o], ay = pos[o+1], bx = pos[o+3], by = pos[o+4], cx = pos[o+6], cy = pos[o+7];
+      const d = (by - cy)*(ax - cx) + (cx - bx)*(ay - cy); if (Math.abs(d) < 1e-12) return NaN;
+      const a = ((by - cy)*(x - cx) + (cx - bx)*(y - cy))/d, b = ((cy - ay)*(x - cx) + (ax - cx)*(y - cy))/d, c = 1 - a - b;
+      if (a < -1e-6 || b < -1e-6 || c < -1e-6) return NaN;
+      return a*pos[o+2] + b*pos[o+5] + c*pos[o+8];
+    };
+    // точки опоры
+    const pts = [], keys = new Set(), minZ = resin ? -1 : 0.4;
+    for (let t = 0; t < n && pts.length < MAXP*1.3; t++){
+      if (nz[t] >= lim) continue;
+      const o = t*9;
+      if (!resin && Math.max(pos[o+2], pos[o+5], pos[o+8]) < minZ) continue;   // лежит на столе
+      const tx0 = Math.min(pos[o], pos[o+3], pos[o+6]), tx1 = Math.max(pos[o], pos[o+3], pos[o+6]), ty0 = Math.min(pos[o+1], pos[o+4], pos[o+7]), ty1 = Math.max(pos[o+1], pos[o+4], pos[o+7]);
+      let added = 0;
+      for (let iy = Math.ceil(ty0/sp); iy*sp <= ty1; iy++) for (let ix = Math.ceil(tx0/sp); ix*sp <= tx1; ix++){
+        const x = ix*sp, y = iy*sp, z = zAt(t, x, y);
+        if (!Number.isFinite(z) || z < minZ) continue;
+        const key = ix + ',' + iy + ',' + Math.round(z/(sp*1.5));
+        if (keys.has(key)) continue; keys.add(key); pts.push([x, y, z]); added++;
+      }
+      if (!added && (tx1 - tx0)*(ty1 - ty0) > sp*sp*0.12){
+        const x = (pos[o] + pos[o+3] + pos[o+6])/3, y = (pos[o+1] + pos[o+4] + pos[o+7])/3, z = (pos[o+2] + pos[o+5] + pos[o+8])/3;
+        const key = Math.round(x/sp) + ',' + Math.round(y/sp) + ',' + Math.round(z/(sp*1.5));
+        if (z >= minZ && !keys.has(key)){ keys.add(key); pts.push([x, y, z]); }
+      }
+    }
+    // куда встаёт каждая опора
+    const bedZ = -P.lift, sup = [];
+    for (const [x, y, z] of pts){
+      const i = Math.floor((x - x0)/cell), j = Math.floor((y - y0)/cell);
+      let land = bedZ, onModel = false, inside = false;
+      if (i >= 0 && j >= 0 && i < gx && j < gy){
+        let best = -Infinity, bestN = 0;
+        for (let k = cnt[j*gx + i]; k < cnt[j*gx + i + 1]; k++){
+          const t = tris[k], zz = zAt(t, x, y);
+          if (Number.isFinite(zz) && zz < z - 0.3 && zz > best){ best = zz; bestN = nz[t]; }
+        }
+        if (best > -Infinity){ if (bestN > 0){ land = best; onModel = true; } else inside = true; }
+      }
+      if (inside) continue;
+      if (z - land < P.tipL*0.8) continue;
+      sup.push({ x, y, z, land, onModel });
+    }
+    // геометрия: усечённые конусы между двумя точками
+    const out = []; let vol = 0; const SEG = 6;
+    const cyl = (ax, ay, az, bx, by, bz, r0, r1) => {
+      const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz); if (L < 1e-6) return;
+      const ux = dx/L, uy = dy/L, uz = dz/L;
+      let px = -uy, py = ux, pz = 0; let pl = Math.hypot(px, py, pz); if (pl < 1e-6){ px = 1; py = 0; pz = 0; pl = 1; }
+      px /= pl; py /= pl; pz /= pl;
+      const qx = uy*pz - uz*py, qy = uz*px - ux*pz, qz = ux*py - uy*px;
+      const ring = (cx, cy, cz, r) => { const a = []; for (let s = 0; s < SEG; s++){ const f = s/SEG*Math.PI*2, c = Math.cos(f)*r, si = Math.sin(f)*r; a.push([cx + px*c + qx*si, cy + py*c + qy*si, cz + pz*c + qz*si]); } return a; };
+      const A = ring(ax, ay, az, r0), B = ring(bx, by, bz, r1);
+      for (let s = 0; s < SEG; s++){ const s2 = (s + 1)%SEG; out.push(...A[s], ...B[s], ...B[s2], ...A[s], ...B[s2], ...A[s2]); }
+      for (let s = 1; s < SEG - 1; s++){ out.push(...A[0], ...A[s+1], ...A[s], ...B[0], ...B[s], ...B[s+1]); }
+      vol += Math.PI*L/3*(r0*r0 + r0*r1 + r1*r1);
+    };
+    for (const s of sup){
+      const top = s.z - P.tipL, bot = s.onModel ? s.land + P.tipL*0.7 : bedZ + 0.8;
+      cyl(s.x, s.y, s.z, s.x, s.y, top, P.tip, P.r);                       // касание
+      if (top > bot) cyl(s.x, s.y, top, s.x, s.y, bot, P.r, P.r);          // ствол
+      if (s.onModel) cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, P.r, P.tip);
+      else cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, bedZ, P.r, P.pad); // подошва
+    }
+    // сложные: диагональные связи с ближайшей соседней опорой
+    if (P.brace > 0 && sup.length > 1){
+      const h = new Map(), hk = (x, y) => Math.floor(x/(sp*2.6)) + ',' + Math.floor(y/(sp*2.6));
+      sup.forEach((s, i) => { const k = hk(s.x, s.y); if (!h.has(k)) h.set(k, []); h.get(k).push(i); });
+      const done = new Set();
+      sup.forEach((a, i) => {
+        if (a.onModel) return;
+        let bj = -1, bd = Infinity; const cx = Math.floor(a.x/(sp*2.6)), cy = Math.floor(a.y/(sp*2.6));
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const j of h.get((cx + dx) + ',' + (cy + dy)) || []){
+          if (j === i || sup[j].onModel) continue; const d = Math.hypot(sup[j].x - a.x, sup[j].y - a.y);
+          if (d > 0.5 && d < sp*2.6 && d < bd){ bd = d; bj = j; }
+        }
+        if (bj < 0) return; const key = Math.min(i, bj) + ':' + Math.max(i, bj); if (done.has(key)) return; done.add(key);
+        const b = sup[bj], topZ = Math.min(a.z, b.z) - P.tipL - 1;
+        let up = true;
+        for (let z = bedZ + 2; z + P.brace*0.6 < topZ; z += P.brace){
+          if (up) cyl(a.x, a.y, z, b.x, b.y, z + P.brace*0.6, P.r*0.6, P.r*0.6); else cyl(b.x, b.y, z, a.x, a.y, z + P.brace*0.6, P.r*0.6, P.r*0.6);
+          up = !up;
+        }
+      });
+    }
+    if (supObj){ modelGroup.remove(supObj); supObj.geometry.dispose(); supObj = null; }
+    supState = { type, resin, n: sup.length, vol, lift: P.lift, ver: mesh.ver, sp };
+    mesh.st.userSup = { type, resin, n: sup.length, vol };
+    if (resin){ if (S.tech === 'sla' || S.tech === 'dlp') S.sla.density = type; S.sla.supports = 'auto'; S.sla.tilt = 0; }
+    else S.slicer.supports = 'auto';
+    if (sup.length && typeof THREE !== 'undefined' && modelGroup){
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3)); g.computeVertexNormals();
+      supObj = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: resin ? 0xcdbfe6 : 0xd3d9de, roughness:0.7, metalness:0, side:THREE.DoubleSide }));
+      supObj.position.z = P.lift; modelGroup.add(supObj);
+      if (modelObj) modelObj.position.z = P.lift;
+      needRender = true;
+    }
+    renderSupBtn(); syncInputs(); recalc();
+    toast(sup.length ? `${SUP_NAMES[type]} поддержки: ${nf(sup.length)} опор, ${nf(vol/1000, 2)} см³${sp > P.sp*1.01 ? ` (шаг увеличен до ${nf(sp,1)} мм — модель крупная)` : ''}` : 'Нависаний, которым нужны поддержки, не нашлось');
+  } catch(err){ console.error(err); toast('Не получилось построить поддержки: ' + err.message); }
+  finally { busy(false); }
+}
+/* Масштаб: ползунок показывает новый размер сразу, пересчёт — когда отпустили */
+function renderScalePop(){
+  if (!mesh || !$('scalePop')) return;
+  const cur = mesh.scale*100; $('scaleNum').value = +cur.toFixed(1); $('scaleRange').value = Math.min(400, Math.max(10, cur));
+  $('scaleVal').textContent = nf(cur, cur % 1 ? 1 : 0) + '%'; scaleDimsText(1);
+}
+function scaleDimsText(k){
+  const st = mesh.st; $('scaleDims').textContent = `${nf(st.dimX*k,1)} × ${nf(st.dimY*k,1)} × ${nf(st.dimZ*k,1)} мм`;
+}
+function setScalePct(v){
+  if (!mesh || !(v > 0)) return;
+  if (modelObj) modelObj.scale.setScalar(1); if (supObj) supObj.scale.setScalar(1);
+  $('scalePct').value = +v.toFixed(2); $('scalePct').dispatchEvent(new Event('change'));
+}
+function fitScale(){
+  if (!mesh) return; const pr = printer(), st = mesh.st, lift = RESIN.has(S.tech) ? 5 : 0;
+  const k = Math.min((pr.bedX - 10)/st.dimX, (pr.bedY - 10)/st.dimY, (pr.bedZ - lift - 5)/st.dimZ);
+  setScalePct(Math.floor(mesh.scale*100*k*10)/10);
+}
+
 function busy(on, text){ $('busyText').textContent = text || 'Считаю…'; $('busy').hidden = !on; }
 const tick = () => new Promise(r => setTimeout(r, 20));
 async function setMesh(pos, name){
+  clearSupports(true);
   busy(true); await tick();
   normalizePos(pos);
   const st = analyzeMesh(pos);
   mesh = { pos, name, st, unit:1, scale:1, ver: ++MESH_VER }; orcaErr = null;
   $('unitSel').value = '1'; $('scalePct').value = 100;
   busy(false);
-  drawModel(); fitCam(); renderModelInfo();
+  drawModel(); fitCam(); renderModelInfo(); renderScalePop();
 }
 async function reanalyze(keepCam){
+  clearSupports(true);
   busy(true); await tick();
   mesh.st = analyzeMesh(mesh.pos); mesh.ver = ++MESH_VER; orcaErr = null;
   busy(false);
-  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc();
+  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc(); renderScalePop();
   orcaAutoSlice();
 }
 
@@ -2269,33 +2511,33 @@ function costRowsHTML(r, single){
   const priceKg = it ? (it.it.priceKg > 0 ? it.it.priceKg : it.c.mt.price) : null;
   const machRate = pr0.price/Math.max(1, pr0.life) + pr0.maint;
   const hint = {
-    mat: it ? `${nf(it.c.gramsTot,1)} г × ${nf(priceKg/1000,2)} ₽/г` : `${w(r.grams)} с потерями`,
+    mat: it && RESIN.has(it.c.tech) ? `${nf(it.c.detail.mlTot,1)} мл × ${nf(it.c.mt.price/1000,2)} ₽/мл + спирт` : it ? `${nf(it.c.gramsTot,1)} г × ${nf(priceKg/1000,2)} ₽/г` : `${w(r.grams)} с потерями`,
     mach: `${nf(r.machineH,2)} ч × ${nf(machRate,1)} ₽/ч`,
     energy: `${nf(d.kwhUsed,2)} кВт·ч × ${nf(d.kwhEff,2)} ₽${m.twoRate && d.night > 0.005 ? ` · ночью ${nf(d.night*100,0)}%` : ''}`,
-    labor: [B.labor ? `приём ${m.setupMin} мин` : '', B.labor ? `${r.plates}×${nf(m.plateMin)} мин` : '', B.post ? 'постобработка' : ''].filter(Boolean).join(', ') + ` · ${nf(m.rate)} ₽/ч`,
+    labor: [B.labor ? `приём ${m.setupMin} мин` : '', B.labor ? `${r.plates}×${nf(it && Number.isFinite(it.it.plateMin) ? it.it.plateMin : m.plateMin)} мин` : '', B.post ? 'постобработка' : ''].filter(Boolean).join(', ') + ` · ${nf(m.rate)} ₽/ч`,
     extra: 'втулки, покраска, моделирование, упаковка',
     risk: `${m.risk}% перепечаток`
   };
   // инженерный режим: из чего сложилась каждая строка
   const L = (k, v) => `<div class="dl"><span>${k}</span><b>${v}</b></div>`;
   const matSorted = [...r.lines].sort((p, q) => q.c.mat - p.c.mat), matTop = matSorted.length > 8 ? matSorted.slice(0, 6) : matSorted;
-  const matLines = matTop.map(({ it: x, c }) => L(`${esc(x.name)}: ${w(c.gramsNet)} + потери ${m.waste}% = ${w(c.gramsTot)}`, `${nf(c.gramsTot/1000*(x.priceKg > 0 ? x.priceKg : c.mt.price),2)} ₽`)).join('') + (matTop.length < matSorted.length ? L(`…ещё ${matSorted.length - matTop.length} позиций`, rub(matSorted.slice(matTop.length).reduce((t, l) => t + l.c.mat, 0),2)) : '')
-    + L('Цена пластика', r.lines.length === 1 ? `${nf(priceKg)} ₽/кг (${esc(it.c.mt.name)})` : 'по материалам позиций');
+  const matLines = matTop.map(({ it: x, c }) => RESIN.has(c.tech) ? L(`${esc(x.name)}: ${nf(x.ml*c.qty,1)} мл + потери ${m.waste}% = ${nf(c.detail.mlTot,1)} мл`, `${nf(c.detail.mlTot/1000*c.mt.price,2)} ₽`) + (x.plateCost ? L(`Спирт, перчатки: ${c.plates} × ${nf(x.plateCost)} ₽`, rub(c.plates*x.plateCost,2)) : '') : L(`${esc(x.name)}: ${w(c.gramsNet)} + потери ${m.waste}% = ${w(c.gramsTot)}`, `${nf(c.gramsTot/1000*(x.priceKg > 0 ? x.priceKg : c.mt.price),2)} ₽`)).join('') + (matTop.length < matSorted.length ? L(`…ещё ${matSorted.length - matTop.length} позиций`, rub(matSorted.slice(matTop.length).reduce((t, l) => t + l.c.mat, 0),2)) : '')
+    + L(it && RESIN.has(it.c.tech) ? 'Цена смолы' : 'Цена пластика', r.lines.length === 1 ? `${nf(priceKg)} ₽/${RESIN.has(it.c.tech) ? 'л' : 'кг'} (${esc(it.c.mt.name)})` : 'по материалам позиций');
   const det = {
     mat: matLines,
-    mach: L('Печать по слайсеру', `${nf(d.printH,2)} ч`) + L(`Прогрев стола: ${r.plates} × ${nf(pr0.warmup)} мин`, `${nf(d.warmH,2)} ч`)
+    mach: L(RESIN.has(pr0.tech) ? (pr0.tech === 'sla' ? 'Печать: лазер и разравнивание слоёв' : 'Печать: засветка и подъём слоёв') : 'Печать по слайсеру', `${nf(d.printH,2)} ч`) + L(`${RESIN.has(pr0.tech) ? 'Подготовка ванны' : 'Прогрев стола'}: ${r.plates} × ${nf(pr0.warmup)} мин`, `${nf(d.warmH,2)} ч`)
       + (d.chamberH > 0 ? L(`Прогрев камеры: ${r.plates} × ${nf(pr0.chamberMin)} мин`, `${nf(d.chamberH,2)} ч`) : '')
       + L(`Амортизация: ${nf(pr0.price)} ₽ ÷ ${nf(pr0.life)} ч`, `${nf(pr0.price/Math.max(1, pr0.life),2)} ₽/ч`) + L('Расходники и ремонт', `${nf(pr0.maint,2)} ₽/ч`)
       + L(`Итого ${nf(r.machineH,2)} ч × ${nf(machRate,2)} ₽/ч`, rub(r.b.mach,2)),
     energy: L(`Мощность: принтер ${nf(pr0.power)} Вт${d.chamberH > 0 ? ` + камера ${nf(pr0.chamberPower)} Вт` : ''}`, `${nf(d.kwhUsed,2)} кВт·ч`)
       + (m.twoRate ? L(`День ${nf((1 - d.night)*100,0)}% × ${nf(m.kwh,2)} ₽ · ночь ${nf(d.night*100,0)}% × ${nf(m.kwhNight,2)} ₽`, `${nf(d.kwhEff,2)} ₽/кВт·ч`) : L('Тариф', `${nf(m.kwh,2)} ₽/кВт·ч`))
       + L('Старт печати', fmtWhen(r.plan.start)),
-    labor: (B.labor ? L(`Приём заказа: ${m.setupMin} мин`, rub(d.setupH*m.rate,2)) + L(`Снятие со стола: ${r.plates} × ${nf(m.plateMin)} мин`, rub(d.plateLabH*m.rate,2)) : '')
+    labor: (B.labor ? L(`Приём заказа: ${m.setupMin} мин`, rub(d.setupH*m.rate,2)) + L(`${it && RESIN.has(it.c.tech) ? 'Мойка и засветка' : 'Снятие со стола'}: ${r.plates} × ${nf(it && Number.isFinite(it.it.plateMin) ? it.it.plateMin : m.plateMin)} мин`, rub(d.plateLabH*m.rate,2)) : '')
       + (B.post ? L(`Постобработка: ${nf(r.qty)} шт, всего ${nf(d.postH*60,0)} мин`, rub(d.postH*m.rate,2)) : '') + L('Ставка оператора', `${nf(m.rate)} ₽/ч`),
     extra: L('Втулки', rub(d.inserts,2)) + L('Покраска', rub(d.paint,2)) + L(`Моделирование: ${nf(m.cadH,1)} ч × ${nf(m.cadRate)} ₽`, rub(d.cad,2)) + L('Упаковка', rub(d.pack,2)),
     risk: L('База: пластик + станок + энергия + снятие', rub(d.riskBase,2)) + L(`× ${m.risk}% ÷ (1 − ${m.risk}%)`, rub(r.b.risk,2))
   };
-  const items = [['mat','Пластик','--c-mat'],['mach','Амортизация, обслуживание','--c-mach'],['energy','Электроэнергия','--c-en'],['labor','Работа','--c-lab'],['extra','Доп. услуги','--c-ext'],['risk','Резерв на брак','--c-risk']]
+  const items = [['mat', it && RESIN.has(it.c.tech) ? 'Смола и расходники' : !it && r.lines.some(l => RESIN.has(l.c.tech)) ? 'Материалы' : 'Пластик','--c-mat'],['mach','Амортизация, обслуживание','--c-mach'],['energy','Электроэнергия','--c-en'],['labor','Работа','--c-lab'],['extra','Доп. услуги','--c-ext'],['risk','Резерв на брак','--c-risk']]
     .filter(([k]) => k === 'mat' || k === 'mach' || (k === 'energy' && B.energy) || (k === 'labor' && (B.labor || B.post)) || (k === 'extra' && B.extras) || (k === 'risk' && B.risk));
   const tot = Math.max(0.01, r.cost);
   $('sumBar').innerHTML = items.map(([k,,c]) => `<span style="width:${r.b[k]/tot*100}%;background:var(${c})"></span>`).join('');
@@ -2457,6 +2699,7 @@ function setMode(mode){
   for (const k of ['simple','adv','pro']) document.body.classList.toggle('mode-' + k, S.mode === k);
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === S.mode));
 }
+function supAfterDraw(){ if (modelObj && supState && supObj) modelObj.position.z = supState.lift; }
 function renderPresetsMk(){
   const p = S.money.presets || [];
   $('mkPresets').innerHTML = p.map((x, i) => `<button type="button" data-mk="${i}" class="${+x.v === +S.money.markup ? 'on' : ''}">${esc(x.n)} ${x.v}%</button>`).join('');
@@ -2482,6 +2725,11 @@ function renderBlocks(){
   applyPal();
 }
 function renderTech(){
+  const resinNow = RESIN.has(S.tech);
+  if (resinNow) S.resinSub = S.tech;
+  document.querySelectorAll('#techMain [data-main]').forEach(b => b.classList.toggle('on', (b.dataset.main === 'resin') === resinNow));
+  document.querySelectorAll('#techSub [data-sub]').forEach(b => b.classList.toggle('on', b.dataset.sub === S.tech));
+  const ts = $('techSubNote'); if (ts) ts.textContent = S.tech === 'dlp' ? 'Проектор засвечивает слой целиком: время зависит от высоты, а не от числа деталей.' : 'Лазер обводит каждое сечение: время растёт с площадью и числом деталей. Ванна большая — промышленные детали.';
   $('techSeg').style.setProperty('--i', TECHS.indexOf(S.tech));
   document.querySelectorAll('#techSeg button').forEach(b => { const on = b.dataset.tech === S.tech; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
   document.querySelectorAll('[data-tech]:not(#techSeg button)').forEach(el => el.classList.toggle('tech-off', !el.dataset.tech.split(/\s+/).includes(S.tech)));
@@ -2492,7 +2740,8 @@ function renderTech(){
   $('postLbl').textContent = S.tech === 'sls' ? 'Пескоструй, покраска 1 шт' : resin ? 'Снятие поддержек 1 шт' : 'Постобработка 1 шт';
 }
 function setTech(t, silent){
-  if (!TECH[t]) return;
+  if (!TECH[t] || !TECHS.includes(t)) return;
+  if (RESIN.has(t) !== RESIN.has(S.tech)) clearSupports(true);
   S.tech = t;
   renderTech(); setSource(S.source); renderEquip(); drawBed(); drawModel(); renderModelInfo(); syncInputs(); fitCam();
   if (!silent) recalc();
@@ -2789,6 +3038,25 @@ function wire(){
   $('btnFlat').onclick = layFlat; $('btnOrient').onclick = autoOrient; $('btnRepair').onclick = doRepair;
   $('btnOver').onclick = () => { showOver = !showOver; $('btnOver').classList.toggle('on', showOver); drawModel(); };
   $('btnCam').onclick = fitCam;
+  const pops = ['supPop','scalePop'];
+  const togglePop = id => { pops.forEach(p => { const el = $(p); if (el) el.hidden = p === id ? !el.hidden : true; }); if (id === 'scalePop') renderScalePop(); if (id === 'supPop') renderSupBtn(); };
+  $('btnSup').onclick = e => { e.stopPropagation(); togglePop('supPop'); };
+  $('btnScale').onclick = e => { e.stopPropagation(); togglePop('scalePop'); };
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.pop, #btnSup, #btnScale')) pops.forEach(p => { $(p).hidden = true; }); });
+  $('supPop').addEventListener('click', e => {
+    const b = e.target.closest('[data-sup]'); if (b){ $('supPop').hidden = true; buildSupports(b.dataset.sup); return; }
+    if (e.target.closest('#supClear')){ clearSupports(); $('supPop').hidden = true; }
+  });
+  $('scaleRange').addEventListener('input', e => {
+    if (!mesh) return; const v = +e.target.value, k = v/(mesh.scale*100);
+    if (modelObj) modelObj.scale.setScalar(k); if (supObj) supObj.scale.setScalar(k); needRender = true;
+    $('scaleVal').textContent = nf(v) + '%'; $('scaleNum').value = v; scaleDimsText(k);
+  });
+  $('scaleRange').addEventListener('change', e => setScalePct(+e.target.value));
+  $('scaleNum').addEventListener('change', e => setScalePct(parseFloat(e.target.value)));
+  $('scalePop').addEventListener('click', e => { const q = e.target.closest('[data-scale]'); if (q) setScalePct(+q.dataset.scale); if (e.target.closest('#scaleFit')) fitScale(); });
+  $('techMain').addEventListener('click', e => { const b = e.target.closest('[data-main]'); if (!b) return; setTech(b.dataset.main === 'resin' ? (S.resinSub || 'sla') : 'fdm'); });
+  $('techSub').addEventListener('click', e => { const b = e.target.closest('[data-sub]'); if (!b) return; setTech(b.dataset.sub); });
   $('modelAlerts').addEventListener('click', e => {
     const u = e.target.closest('[data-unit]'); if (u){ $('unitSel').value = u.dataset.unit; $('unitSel').dispatchEvent(new Event('change')); return; }
     if (e.target.closest('[data-act="orient"]')) autoOrient();
@@ -2860,7 +3128,10 @@ const CAPS = {
   'money.risk':'Доля деталей, которые придётся перепечатать.', 'money.waste':'Продувка, концы катушек, неудачные старты.', 'money.printers':'Сколько одинаковых принтеров печатают заказ параллельно.',
   'money.hoursPerDay':'Сколько часов в сутки реально печатаете — для срока в днях.',
   'money.deadline':'Срок клиента. Пусто — без срока.', 'money.busyUntil':'Когда принтер освободится от других заказов.', 'money.start':'Пусто — как только принтер свободен. Влияет на ночной тариф.',
-  'money.rushPct':'Включается сама, если успеть можно только вне очереди.'
+  'money.rushPct':'Включается сама, если успеть можно только вне очереди.',
+  'sla.layer':'Промышленный SLA обычно 0,1 мм; тоньше — глаже, но дольше.', 'sla.supports':'На платформе — только для плоских деталей без нависаний.',
+  'sla.density':'Сложные — для тяжёлых и крупных деталей, связи между опорами.', 'sla.tilt':'Наклон уменьшает площадь слоя и отрыв, но добавляет опор.',
+  'sla.wall':'Полая деталь экономит смолу; нужны дренажные отверстия.', 'sla.washMin':'Мойка в спирте и УФ-дозасветка — на каждый стол.', 'sla.washCost':'Спирт, перчатки, фильтры — на каждый стол.'
 };
 function addCaptions(){
   document.querySelectorAll('[data-bind]').forEach(el => {
@@ -2871,6 +3142,7 @@ function addCaptions(){
 }
 window.addEventListener('DOMContentLoaded', async () => {
   if (typeof THREE === 'undefined'){ document.body.insertAdjacentHTML('afterbegin', '<div class="alert bad" style="margin:16px"><p>Не загрузилась библиотека three.js. Проверьте подключение к интернету.</p></div>'); return; }
+  { const _dm = drawModel; drawModel = function(){ _dm(); supAfterDraw(); }; }
   addCaptions(); setMode(S.mode); renderBlocks(); renderTech();
   initViewer(); wire(); wireOrca(); renderEquip(); drawBed(); setSource(S.source); syncInputs();
   await loadDemo('case', true);
