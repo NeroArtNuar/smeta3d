@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Калькулятор стоимости 3D-печати FDM и SLA/DLP: нарезка модели в браузере, поддержки, G-code из OrcaSlicer, сроки, ночной тариф, текст КП.">
+<meta name="description" content="Калькулятор стоимости 3D-печати FDM и фотополимер SLA/DLP/LCD: нарезка модели в браузере, поддержки, G-code из OrcaSlicer, сроки, ночной тариф, текст КП.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <title>Смета 3D-печати</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -75,6 +75,29 @@
 .pop-row .inp{flex:1}
 .pop-row button{border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:5px 8px;font:12px var(--f-mono);cursor:pointer;color:var(--fg)}
 .pop-row button:hover{border-color:var(--accent)}
+.mk-limit{color:var(--muted)} .mode-pro .mk-limit{display:none}
+.bad-text{color:var(--bad)}
+.tool-panel{border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:10px;background:var(--surface-2);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.tool-panel[hidden],#islFix[hidden]{display:none!important}
+.tp-h{display:flex;justify-content:space-between;align-items:center}
+.tp-h b{font:600 13px var(--f-display);color:var(--accent)}
+.tp-x{border:0;background:none;font-size:20px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.tp-sec{display:flex;flex-direction:column;gap:6px}
+.tp-l{font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+details.tp-sec>summary{cursor:pointer;list-style:none} details.tp-sec>summary::before{content:"+ ";color:var(--accent)} details.tp-sec[open]>summary::before{content:"− "}
+.goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px}
+.goal-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--fg)}
+.goal-grid button.wide{grid-column:1/-1}
+.goal-grid button small{color:var(--muted);font-size:11.5px;line-height:1.35}
+.goal-grid button:hover,.goal-grid button.on{border-color:var(--accent);background:var(--accent-soft)}
+.rot-row{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.rot-row>button,#islFind{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:5px 9px;font-size:12.5px;cursor:pointer;color:var(--fg)}
+.rot-row>button:hover,#islFind:hover{border-color:var(--accent)}
+.rot-l{font-size:12px;color:var(--muted);min-width:44px}
+.inp.sm{width:86px;height:30px}
+#raftSeg button.on,#supEditSeg button.on,#spMode button.on{background:var(--accent);color:var(--on-accent)}
+.toolbar button.on#btnPos{background:var(--accent);color:var(--on-accent)}
+.sp-block{display:flex;flex-direction:column;gap:8px;margin-top:6px}
 .fdm-tag{font:700 11px var(--f-mono);letter-spacing:.08em;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:2px 6px}
 .field .cap{font-size:11.5px;line-height:1.35;color:var(--muted);margin-top:2px}
 .hint.how{margin:0 0 4px;font-size:12.5px}
@@ -300,7 +323,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
       <h1>Смета 3D-печати</h1>
     </div>
     <div class="tech" id="techSeg" hidden><button type="button" data-tech="fdm">FDM</button></div>
-    <div class="seg tech2" id="techMain" role="group" aria-label="Технология"><button type="button" data-main="fdm" title="Печать пластиковой нитью">FDM</button><button type="button" data-main="resin" title="Фотополимер: SLA (лазер) или DLP (проектор)">SLA</button></div>
+    <div class="seg tech2" id="techMain" role="group" aria-label="Технология"><button type="button" data-main="fdm" title="Печать пластиковой нитью">FDM</button><button type="button" data-main="resin" title="Фотополимер: SLA (лазер), DLP (проектор) или LCD (экран)">Фотополимер</button></div>
     <a class="site-link" href="plugin.html">Плагин для OrcaSlicer</a>
     <div class="seg" id="modeSeg" role="group" aria-label="Режим калькулятора">
       <button type="button" data-mode="simple" title="Только то, что нужно для цены">Простой</button>
@@ -337,24 +360,14 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <div class="ov tl"><span class="pill" id="pillName">—</span></div>
           <div class="ov bl">
             <div class="toolbar">
-              <button type="button" class="adv" data-rot="x" title="Повернуть на 90° вокруг X">↻X</button>
-              <button type="button" class="adv" data-rot="y" title="Повернуть на 90° вокруг Y">↻Y</button>
-              <button type="button" class="adv" data-rot="z" title="Повернуть на 90° вокруг Z">↻Z</button>
               <button type="button" class="adv" id="btnFlat" title="Положить на самую большую плоскую грань">На грань</button>
               <button type="button" class="adv" id="btnOrient" title="Выбрать самое выгодное положение для текущей технологии">Подобрать</button>
+              <button type="button" id="btnPos" title="Повороты на любой угол и подбор положения по цели">Положение</button>
               <button type="button" id="btnRepair" title="Закрыть дыры, развернуть нормали, убрать лишние грани">Починить</button>
-              <button type="button" id="btnSup" title="Построить поддержки и показать их на модели" data-tech="fdm sla dlp lcd">Поддержки</button>
+              <button type="button" id="btnSup" title="Поддержки, плот и острова" data-tech="fdm sla dlp lcd">Поддержки</button>
               <button type="button" id="btnScale" title="Изменить масштаб модели">Масштаб</button>
             </div>
             <div class="toolbar"><button type="button" id="btnOver" class="on" data-tech="fdm sla dlp lcd" title="Подсветить нависания круче 45°">Нависания</button><button type="button" id="btnCam" title="Вернуть камеру">⟲</button></div>
-          </div>
-          <div class="pop" id="supPop" hidden>
-            <p class="pop-h">Поддержки</p>
-            <button type="button" data-sup="light"><b>Лёгкие</b><small>редкие тонкие опоры, легко снимать</small></button>
-            <button type="button" data-sup="medium"><b>Средние</b><small>обычный шаг и толщина</small></button>
-            <button type="button" data-sup="heavy"><b>Сложные</b><small>частые толстые опоры со связями — для крупных и тяжёлых</small></button>
-            <small class="pop-info" id="supInfo"></small>
-            <button type="button" class="pop-link" id="supClear">Убрать поддержки</button>
           </div>
           <div class="pop" id="scalePop" hidden>
             <p class="pop-h">Масштаб <b id="scaleVal">100%</b></p>
@@ -378,6 +391,42 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
             <label class="field"><span class="lbl">Z</span><span class="inp"><input id="dimZ" type="number" min="0.1" step="0.1"><em>мм</em></span></label>
           </div>
         </div>
+      </div>
+      <div class="tool-panel" id="posPanel" hidden>
+        <div class="tp-h"><b>Положение модели</b><button type="button" class="tp-x" data-close="posPanel" aria-label="Закрыть">×</button></div>
+        <small class="cap" id="posInfo"></small>
+        <div class="tp-sec"><span class="tp-l">Подобрать автоматически</span><div class="goal-grid" id="posGoals"></div></div>
+        <div class="tp-sec"><span class="tp-l">Повернуть</span>
+          <div class="rot-row"><span class="rot-l">Шаг</span><span class="inp sm"><input id="posStep" type="number" min="1" max="180" step="1" value="15" aria-label="Шаг поворота"><em>°</em></span>
+            <button type="button" data-step="x:-1">X −</button><button type="button" data-step="x:1">X +</button><button type="button" data-step="y:-1">Y −</button><button type="button" data-step="y:1">Y +</button><button type="button" data-step="z:-1">Z −</button><button type="button" data-step="z:1">Z +</button></div>
+          <div class="rot-row"><span class="rot-l">Точно</span>
+            <span class="inp sm"><input id="posX" type="number" step="1" value="0" aria-label="Угол по X"><em>X°</em></span><span class="inp sm"><input id="posY" type="number" step="1" value="0" aria-label="Угол по Y"><em>Y°</em></span><span class="inp sm"><input id="posZ" type="number" step="1" value="0" aria-label="Угол по Z"><em>Z°</em></span>
+            <button type="button" id="posApply">Повернуть</button></div>
+          <div class="rot-row"><span class="rot-l">Быстро</span><button type="button" data-rot="x">90° X</button><button type="button" data-rot="y">90° Y</button><button type="button" data-rot="z">90° Z</button><button type="button" id="btnFlat2">На грань</button></div>
+        </div>
+      </div>
+      <div class="tool-panel" id="supPanel" hidden>
+        <div class="tp-h"><b>Поддержки</b><button type="button" class="tp-x" data-close="supPanel" aria-label="Закрыть">×</button></div>
+        <div class="tp-sec"><span class="tp-l">Построить</span>
+          <div class="goal-grid">
+            <button type="button" data-sup="hybrid" class="wide"><b>Гибрид — программа решает сама</b><small>Пологие склоны — лёгкими, потолки — средними, высокие опоры — толще и со связями, опоры на детали — тонкими, чтобы не оставить следов</small></button>
+            <button type="button" data-sup="light"><b>Лёгкие</b><small>Редкие тонкие, легко снимать</small></button>
+            <button type="button" data-sup="medium"><b>Средние</b><small>Обычный шаг и толщина</small></button>
+            <button type="button" data-sup="heavy"><b>Сложные</b><small>Частые толстые со связями</small></button>
+          </div>
+          <div class="rot-row"><small class="pop-info" id="supInfo"></small><button type="button" class="pop-link" id="supClear">Убрать</button></div>
+        </div>
+        <div class="tp-sec"><span class="tp-l">Плот</span><div class="seg" id="raftSeg"></div><small class="cap" id="raftNote"></small></div>
+        <div class="tp-sec"><span class="tp-l">Острова</span><small class="cap" id="islInfo"></small>
+          <div class="rot-row"><button type="button" id="islFind">Проверить острова</button>
+            <span id="islFix" class="rot-row" hidden><span class="rot-l">Подпереть</span><button type="button" data-isl="light">Лёгкими</button><button type="button" data-isl="medium">Средними</button><button type="button" data-isl="heavy">Сложными</button></span></div>
+        </div>
+        <details class="tp-sec"><summary class="tp-l">Параметры поддержек</summary>
+          <div class="seg" id="supEditSeg"><button type="button" data-edit="light">Лёгкие</button><button type="button" data-edit="medium">Средние</button><button type="button" data-edit="heavy">Сложные</button></div>
+          <small class="cap">Гибрид берёт параметры из всех трёх типов. Изменения сразу перестраивают опоры.</small>
+          <div class="grid" id="supFields"></div>
+          <button type="button" class="pop-link" id="supReset">Сбросить параметры этого типа</button>
+        </details>
       </div>
     </div>
   </section>
@@ -413,7 +462,7 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
           <label class="check adv"><input type="checkbox" data-bind="slicer.brim">Кайма</label>
         </div>
         <div class="subtech" data-tech="sla dlp lcd">
-          <div class="seg" id="techSub" role="group" aria-label="Вид фотополимерной печати"><button type="button" data-sub="sla">SLA · лазер</button><button type="button" data-sub="dlp">DLP · проектор</button></div>
+          <div class="seg" id="techSub" role="group" aria-label="Вид фотополимерной печати"><button type="button" data-sub="sla">SLA · лазер</button><button type="button" data-sub="dlp">DLP · проектор</button><button type="button" data-sub="lcd">LCD · экран</button></div>
           <small class="cap" id="techSubNote"></small>
         </div>
         <div class="grid" data-tech="sla dlp lcd">
@@ -507,9 +556,9 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
     <div class="card-h"><h2>Цена</h2></div>
     <div class="card-b">
       <div class="grid">
-        <div class="field"><label class="lbl" for="mk">Наценка</label><span class="inp"><input id="mk" type="number" min="0" max="2000" step="5" data-bind="money.markup"><em>%</em></span>
-          <div class="quick" id="mkPresets"></div></div>
-        <div class="field" data-block="discount"><label class="lbl" for="adj">Скидка − / срочность +</label><span class="inp"><input id="adj" type="number" min="-90" max="300" step="5" data-bind="money.adjust"><em>%</em></span>
+        <div class="field adv"><label class="lbl" for="mk">Наценка</label><span class="inp"><input id="mk" type="number" min="0" max="2000" step="5" data-bind="money.markup"><em>%</em></span>
+          <div class="quick" id="mkPresets"></div><small class="cap mk-limit" id="mkLimit"></small></div>
+        <div class="field adv" data-block="discount"><label class="lbl" for="adj">Скидка − / срочность +</label><span class="inp"><input id="adj" type="number" min="-90" max="300" step="5" data-bind="money.adjust"><em>%</em></span>
           <div class="quick" data-quick="money.adjust"><button type="button" data-v="-10">−10</button><button type="button" data-v="0">0</button><button type="button" data-v="50">+50</button></div></div>
         <label class="field" data-block="discount"><span class="lbl">Мин. заказ</span><span class="inp"><input type="number" min="0" step="50" data-bind="money.minOrder"><em>₽</em></span></label>
         <div class="field" data-block="tax"><label class="lbl" for="tx" title="Цена = сумма ÷ (1 − ставка), чтобы после налога осталась нужная сумма">Налог с выручки</label><span class="inp"><input id="tx" type="number" min="0" max="50" step="0.5" data-bind="money.taxRev"><em>%</em></span>
@@ -517,7 +566,11 @@ textarea{width:100%;min-height:180px;margin-top:8px;resize:vertical;border:1px s
         <div class="field" data-block="tax"><label class="lbl" for="vat">НДС сверху</label><span class="inp"><input id="vat" type="number" min="0" max="30" step="1" data-bind="money.vat"><em>%</em></span>
           <div class="quick" data-quick="money.vat"><button type="button" data-v="0">0</button><button type="button" data-v="5">5</button><button type="button" data-v="22">22</button></div></div>
       </div>
-      <details class="adv mkd"><summary class="sub">Кнопки типов клиента</summary><div class="mkedit" id="mkEdit"></div></details>
+      <details class="pro mkd"><summary class="sub">Кнопки типов клиента</summary><div class="mkedit" id="mkEdit"></div></details>
+      <div class="pro grid">
+        <label class="field"><span class="lbl">Допуск менеджера</span><span class="inp"><input type="number" min="0" max="500" step="5" data-bind="money.mgrTol"><em>± п.п.</em></span><small class="cap">Насколько в «Расширенном» можно сдвинуть наценку и скидку</small></label>
+        <label class="field"><span class="lbl">Новый пароль инженера</span><span class="inp"><input type="password" id="engPwNew" autocomplete="new-password"></span><small class="cap"><button type="button" class="pop-link" id="engPwSave">Сменить пароль</button></small></label>
+      </div>
       <div class="adv" style="display:flex;flex-direction:column;gap:8px">
         <p class="sub">Работа и производство</p>
         <div class="grid">
@@ -716,7 +769,7 @@ function gcSummary(text, objs){
    ====================================================================== */
 const FIL_AREA = Math.PI * 0.875 * 0.875; // мм² сечения прутка 1.75 = см³ на метр
 const OVERHANG_NZ = -Math.cos(Math.PI / 4); // нависание круче 45°
-const TECHS = ['fdm','sla','dlp']; // FDM и фотополимер: SLA (лазер) или DLP (проектор)
+const TECHS = ['fdm','sla','dlp','lcd']; // FDM и фотополимер: SLA (лазер), DLP (проектор), LCD (экран)
 const RESIN = new Set(['sla','dlp','lcd']);
 const TECH = {
   fdm: { name:'FDM', long:'FDM (печать пластиковой нитью)',               plates:'Столов',   mat:'Пластик' },
@@ -795,7 +848,7 @@ const DEF_MONEY  = { markup:100, adjust:0, minOrder:500, taxRev:0, vat:22, rate:
                      packaging:0, kwh:7.5, risk:5, waste:5, printers:1, hoursPerDay:20,
                      twoRate:false, kwhNight:3.5, nightFrom:23, nightTo:7, rushPct:30, chamber:false,
                      deadline:'', start:'', busyUntil:'',
-                     presets:[{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }] };
+                     presets:[{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }], mgrTol:25, baseMarkup:null };
 const PRESETS = {
   fdm: {
     draft:    { name:'Черновой',  spec:'0.28 · 10%', set:n => ({ layer:n>=0.6?0.4:0.28, walls:2, top:4, bottom:3, infill:10 }) },
@@ -880,6 +933,11 @@ function loadManualResin(){
   const m = store.get('manualResin', null) || store.get('manualSla', {}) || {};
   return { ml: num0(m.ml ?? m.vol, 0), h: num0(m.h, 0), m: num0(m.m, 0) };
 }
+function loadSup(){
+  const s = store.get('sup', {}) || {};
+  return { cfg: { fdm: { ...((s.cfg || {}).fdm || {}) }, resin: { ...((s.cfg || {}).resin || {}) } },
+           raft: { fdm: 'none', resin: 'std', ...(s.raft || {}) }, lift: +s.lift > 0 ? +s.lift : 5 };
+}
 const savedCal = store.get('massCal', 1);
 const savedTech = store.get('tech', 'fdm');
 const S = {
@@ -887,7 +945,8 @@ const S = {
   materials: loadList('materials', DEF_MATERIALS),
   sel: loadSel(),
   tech: TECHS.includes(savedTech) ? savedTech : 'fdm',
-  resinSub: store.get('resinSub', 'sla') === 'dlp' ? 'dlp' : 'sla',
+  resinSub: ['sla','dlp','lcd'].includes(store.get('resinSub', 'sla')) ? store.get('resinSub', 'sla') : 'sla',
+  sup: loadSup(),
   slicer: { ...DEF_SLICER, ...store.get('slicer', {}) },
   sla: { ...DEF_SLA, ...store.get('sla', {}) },
   sls: { ...DEF_SLS, ...store.get('sls', {}) },
@@ -905,10 +964,14 @@ const S = {
   blocks: { ...DEF_BLOCKS, ...store.get('blocks', {}) },
   orca: { machine:'', process:'', filament:'', infill:'', walls:'', support:'profile', auto:true, useCost:false, ...store.get('orca', {}) },
   mode: ['simple','adv','pro'].includes(store.get('mode', 'simple')) ? store.get('mode', 'simple') : 'simple',
-  eng: !!store.get('eng', false),
+  eng: (() => { try { return sessionStorage.getItem('fdmcalc.eng') === '1'; } catch(e){ return false; } })(),
+  engHash: store.get('engHash', null) || phash('smeta'),
   pal: 'grad'
 };
-const SAVE_KEYS = ['printers','materials','sel','tech','slicer','sla','sls','part','money','manual','manualResin','massCal','source','basket','blocks','mode','orca','eng','resinSub'];
+/* Пароль хранится только как хэш. Открытие действует до закрытия вкладки */
+function phash(s){ let h = 0x811c9dc5; for (const ch of 'smeta3d:' + s){ h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+function setEngSession(on){ try { on ? sessionStorage.setItem('fdmcalc.eng', '1') : sessionStorage.removeItem('fdmcalc.eng'); } catch(e){} }
+const SAVE_KEYS = ['printers','materials','sel','tech','slicer','sla','sls','part','money','manual','manualResin','massCal','source','basket','blocks','mode','orca','engHash','resinSub','sup'];
 /* Ставки дублируются в ваш аккаунт Claude (база страницы): открываются на любом устройстве */
 let cloudDoc = null, cloudT = null;
 function cloudSave(){
@@ -1459,7 +1522,8 @@ function estimatePart(st, sl, pr, mat, massCal){
   let supV = 0;
   if (st.userSup && !st.userSup.resin) supV = st.userSup.vol;
   else if (sl.supports === 'auto' && st.overProj > 25) supV = st.supColumn * (sl.supportType === 'tree' ? 0.09 : 0.15) + st.overProj * 2 * h * 0.8;
-  const brimV = sl.brim ? 2*(st.dimX + st.dimY) * 5 * h : 0;
+  const fRaft = !st.userSup && S.sup && raftCfg('fdm').key === 'raft' ? (st.dimX + 6)*(st.dimY + 6)*0.7*0.9*0.7 : 0;
+  const brimV = (sl.brim ? 2*(st.dimX + st.dimY) * 5 * h : 0) + fRaft;
   // Замедление на нависаниях: доля ширины линии без опоры = h·tgθ / w; пороги 25/50/75% как в Orca и Bambu Studio
   let tOv = 0;
   if (st.ovHist){
@@ -1483,7 +1547,7 @@ function estimatePart(st, sl, pr, mat, massCal){
     row('Сплошные слои', '#8a63d2', vol.solid, tm.solid),
     row(`Заполнение ${sl.infill}%`, '#c8423b', vol.infill, tm.infill),
     row(st.userSup && !st.userSup.resin ? `Поддержки: ${SUP_NAMES[st.userSup.type].toLowerCase()}, ${st.userSup.n} опор` : 'Поддержки', '#2e9e74', supV, tSup),
-    row('Кайма', '#2a8fb0', brimV, tBrim)
+    row(fRaft ? 'Плот' : 'Кайма', '#2a8fb0', brimV, tBrim)
   ].filter(r => r.vol > 0.5);
   if (tOv > 1) rows.push(row('Замедление на нависаниях и мостах', '#4b7bd1', 0, tOv));
   rows.push(row('Перемещения, смена слоя', '#7d8b95', 0, tm.travel));
@@ -1544,7 +1608,7 @@ function estimateSLA(st, s, pr, mat, massCal){
   if (us) supV = us.vol;
   else if (onSup){
     const kd = { light:0.6, medium:1, heavy:1.5 }[s.density] || 1;
-    const raft = st.dimX*st.dimY*0.7*0.35;
+    const rcR = raftCfg('resin'), raft = rcR.t ? (st.dimX + 2*rcR.m)*(st.dimY + 2*rcR.m)*0.7*rcR.t*rcR.fill : 0;
     supV = (st.supColumn*0.035 + st.overProj*0.25 + raft)*kd*(1 + Math.sin(th));
   }
   const ml = (partV + supV)/1000*massCal;
@@ -1727,7 +1791,7 @@ let orcaRes = null, orcaBusy = false, orcaErr = null, orcaState = { status:null,
 let lastEst = null;
 function currentEstimate(){
   if (!mesh || !mesh.st || mesh.st.volMm3 <= 0) return null;
-  if (S.tech === 'fdm') return estimatePart(mesh.st, S.slicer, printer(), material(), S.massCal.fdm);
+  if (S.tech === 'fdm') return estimatePart(mesh.st, S.slicer, effPrinter(printer()), material(), S.massCal.fdm);
   if (RESIN.has(S.tech)) return estimateSLA(mesh.st, S.sla, printer(), material(), S.massCal.resin);
   return null;
 }
@@ -2096,171 +2160,445 @@ async function loadGcode(f, base){
 /* ======================================================================
    ПОДДЕРЖКИ: строим опоры под нависаниями и показываем их на модели
    Точки опоры — по сетке на гранях, смотрящих вниз круче порога. Из каждой точки луч вниз:
-   опора встаёт на стол или на поверхность детали ниже. Объём опор идёт в расчёт.
+   опора встаёт на плот, на стол или на поверхность детали ниже. Объём опор и плота идёт в расчёт.
    Смола: деталь поднимается над платформой, опоры нужны и под дном.
+   Гибрид: шаг и толщина подбираются по месту — пологие склоны лёгкими, потолки средними,
+   высокие опоры толще и со связями, опоры на детали — тонкие, чтобы не оставлять следов.
    ====================================================================== */
-const SUP_NAMES = { light:'Лёгкие', medium:'Средние', heavy:'Сложные' };
-let supObj = null, supState = null;
+const SUP_NAMES = { light:'Лёгкие', medium:'Средние', heavy:'Сложные', hybrid:'Гибридные', islands:'Только острова' };
+const SUP_DEF = {
+  // sp — шаг опор, мм; r — радиус ствола; tip — радиус касания; tipL — длина касания; thr — угол нависания от вертикали;
+  // brace — связи между опорами через столько мм высоты (0 — без связей); pad — радиус подошвы
+  resin: { light: { sp:4.0, r:0.45, tip:0.22, tipL:1.6, thr:40, brace:0, pad:1.4 },
+           medium:{ sp:2.6, r:0.60, tip:0.32, tipL:1.8, thr:30, brace:0, pad:1.8 },
+           heavy: { sp:1.8, r:0.80, tip:0.42, tipL:2.0, thr:20, brace:7, pad:2.2 } },
+  fdm:   { light: { sp:7.0, r:0.60, tip:0.40, tipL:1.2, thr:60, brace:0,  pad:2.0 },
+           medium:{ sp:5.0, r:0.75, tip:0.50, tipL:1.2, thr:50, brace:0,  pad:2.4 },
+           heavy: { sp:3.5, r:0.95, tip:0.60, tipL:1.2, thr:40, brace:10, pad:3.0 } }
+};
+const SUP_FIELDS = [
+  { k:'sp',    l:'Шаг опор',        u:'мм', s:0.1, d:'Расстояние между опорами' },
+  { k:'r',     l:'Ствол Ø',          u:'мм', s:0.1, d:'Толщина опоры', x2:1 },
+  { k:'tip',   l:'Касание Ø',        u:'мм', s:0.05, d:'Толщина в точке касания: тоньше — меньше след', x2:1 },
+  { k:'tipL',  l:'Длина касания',    u:'мм', s:0.1, d:'Конус от касания до ствола' },
+  { k:'thr',   l:'Угол нависания',   u:'°',  s:1, d:'Опоры под гранями круче этого угла от вертикали' },
+  { k:'brace', l:'Связи через',      u:'мм', s:1, d:'Перемычки между опорами; 0 — без связей' },
+  { k:'pad',   l:'Подошва Ø',        u:'мм', s:0.1, d:'Опора на платформе', x2:1 }
+];
+const RAFT = {
+  fdm:   { none:{ l:'Нет' }, brim:{ l:'Кайма' }, raft:{ l:'Плот', t:0.9, m:3, fill:0.7 } },
+  resin: { none:{ l:'Без плота' }, thin:{ l:'Тонкий', t:0.6, m:1.5, fill:1 }, std:{ l:'Стандартный', t:1.5, m:2.5, fill:1 }, grid:{ l:'Решётчатый', t:1.5, m:2.5, fill:0.45 } }
+};
+let supObj = null, supState = null, islObj = null, supIslands = null, supCtxCache = null;
+const supGroup = (t = S.tech) => RESIN.has(t) ? 'resin' : 'fdm';
 function supParams(type, resin){
-  // sp — шаг опор, мм; r — радиус ствола; tip — радиус касания; thr — угол нависания от вертикали, круче которого нужна опора
-  const P = resin ? {
-    light: { sp:4.0, r:0.45, tip:0.22, tipL:1.6, thr:40, brace:0,  pad:1.4 },
-    medium:{ sp:2.6, r:0.60, tip:0.32, tipL:1.8, thr:30, brace:0,  pad:1.8 },
-    heavy: { sp:1.8, r:0.80, tip:0.42, tipL:2.0, thr:20, brace:7,  pad:2.2 } }[type]
-  : {
-    light: { sp:7.0, r:0.60, tip:0.40, tipL:1.2, thr:60, brace:0,  pad:2.0 },
-    medium:{ sp:5.0, r:0.75, tip:0.50, tipL:1.2, thr:50, brace:0,  pad:2.4 },
-    heavy: { sp:3.5, r:0.95, tip:0.60, tipL:1.2, thr:40, brace:10, pad:3.0 } }[type];
-  return { ...P, lift: resin ? 5 : 0 };
+  const g = resin ? 'resin' : 'fdm';
+  return { ...SUP_DEF[g][type], ...((S.sup.cfg[g] || {})[type] || {}), lift: resin ? Math.max(1, +S.sup.lift || 5) : 0 };
 }
+function raftCfg(g = supGroup()){ let k = S.sup.raft[g] in RAFT[g] ? S.sup.raft[g] : 'none'; if (g === 'fdm' && k !== 'raft') k = S.slicer.brim ? 'brim' : 'none'; return { key:k, ...RAFT[g][k] }; }
+/** Положение платформы и плота в координатах модели (дно модели — z = 0) */
+function supLevels(resin){
+  const rc = raftCfg(resin ? 'resin' : 'fdm'), t = rc.t || 0;
+  if (resin){ const L = Math.max(1, +S.sup.lift || 5); return { lift:L, plat:-L, base:-L + t, rc }; }
+  return { lift:t, plat:-t, base:0, rc };
+}
+function removeObj(o){ if (o && modelGroup){ modelGroup.remove(o); o.geometry.dispose(); } return null; }
 function clearSupports(silent){
-  if (supObj && modelGroup){ modelGroup.remove(supObj); supObj.geometry.dispose(); }
-  supObj = null; supState = null;
+  supObj = removeObj(supObj); islObj = removeObj(islObj);
+  supState = null; supIslands = null; supCtxCache = null;
   if (mesh && mesh.st) delete mesh.st.userSup;
   if (typeof modelObj !== 'undefined' && modelObj) modelObj.position.z = 0;
-  renderSupBtn();
+  renderSupPanel();
   if (typeof needRender !== 'undefined') needRender = true;
   if (!silent) recalc();
 }
-function renderSupBtn(){
-  const b = $('btnSup'); if (!b) return;
-  b.textContent = 'Поддержки'; b.title = supState ? `Построены: ${SUP_NAMES[supState.type].toLowerCase()}, ${nf(supState.n)} опор` : 'Построить поддержки и показать их на модели';
-  b.classList.toggle('on', !!supState);
-  document.querySelectorAll('#supPop [data-sup]').forEach(x => x.classList.toggle('on', !!supState && x.dataset.sup === supState.type));
-  const info = $('supInfo'); if (info) info.textContent = supState ? `${nf(supState.n)} опор · ${nf(supState.vol/1000, 2)} см³ · ${RESIN.has(S.tech) ? nf(supState.vol/1000*material().density, 1) + ' г смолы' : nf(supState.vol/1000*material().density, 1) + ' г пластика'}` : 'Поддержки ещё не построены';
+/* сетка треугольников в плане для лучей вверх и вниз */
+function supCtx(){
+  if (supCtxCache && supCtxCache.ver === mesh.ver) return supCtxCache;
+  const pos = mesh.pos, n = pos.length/9;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < pos.length; i += 3){ const x = pos[i], y = pos[i+1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const nz = new Float32Array(n), ar = new Float32Array(n);
+  for (let t = 0; t < n; t++){
+    const o = t*9, ax = pos[o+3]-pos[o], ay = pos[o+4]-pos[o+1], az = pos[o+5]-pos[o+2], bx = pos[o+6]-pos[o], by = pos[o+7]-pos[o+1], bz = pos[o+8]-pos[o+2];
+    const cx = ay*bz - az*by, cy = az*bx - ax*bz, cz = ax*by - ay*bx, l = Math.hypot(cx, cy, cz) || 1;
+    nz[t] = cz/l; ar[t] = Math.abs(cz)/2;
+  }
+  const cell = Math.max(1.5, Math.sqrt((x1 - x0 + 1)*(y1 - y0 + 1)/Math.max(400, Math.min(250000, n/2)))), gx = Math.max(1, Math.ceil((x1 - x0)/cell) + 1), gy = Math.max(1, Math.ceil((y1 - y0)/cell) + 1);
+  const cnt = new Int32Array(gx*gy + 1);
+  const span = t => { const o = t*9;
+    return [Math.floor((Math.min(pos[o], pos[o+3], pos[o+6]) - x0)/cell), Math.floor((Math.max(pos[o], pos[o+3], pos[o+6]) - x0)/cell),
+            Math.floor((Math.min(pos[o+1], pos[o+4], pos[o+7]) - y0)/cell), Math.floor((Math.max(pos[o+1], pos[o+4], pos[o+7]) - y0)/cell)]; };
+  for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) cnt[j*gx + i + 1]++; }
+  for (let k = 1; k < cnt.length; k++) cnt[k] += cnt[k-1];
+  const fill = cnt.slice(), tris = new Int32Array(cnt[cnt.length-1]);
+  for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) tris[fill[j*gx + i]++] = t; }
+  const zAt = (t, x, y) => {
+    const o = t*9, ax = pos[o], ay = pos[o+1], bx = pos[o+3], by = pos[o+4], cx = pos[o+6], cy = pos[o+7];
+    const d = (by - cy)*(ax - cx) + (cx - bx)*(ay - cy); if (Math.abs(d) < 1e-12) return NaN;
+    const a = ((by - cy)*(x - cx) + (cx - bx)*(y - cy))/d, b = ((cy - ay)*(x - cx) + (ax - cx)*(y - cy))/d, c = 1 - a - b;
+    if (a < -1e-6 || b < -1e-6 || c < -1e-6) return NaN;
+    return a*pos[o+2] + b*pos[o+5] + c*pos[o+8];
+  };
+  /** все пересечения вертикали (x, y) с поверхностью: [{z, nz}] */
+  const hits = (x, y) => {
+    const i = Math.floor((x - x0)/cell), j = Math.floor((y - y0)/cell), out = [];
+    if (i < 0 || j < 0 || i >= gx || j >= gy) return out;
+    for (let k = cnt[j*gx + i]; k < cnt[j*gx + i + 1]; k++){ const t = tris[k], z = zAt(t, x, y); if (Number.isFinite(z)) out.push({ z, nz: nz[t] }); }
+    return out;
+  };
+  return (supCtxCache = { ver: mesh.ver, pos, n, nz, ar, zAt, hits, x0, y0, x1, y1 });
+}
+/* точки касания на нависающих гранях; spOf(nz) — шаг для грани с такой нормалью */
+function supPoints(C, lim, spOf, resin, maxP){
+  const pos = C.pos, pts = [], keys = new Set(), minZ = resin ? -1 : 0.4;
+  for (let t = 0; t < C.n && pts.length < maxP; t++){
+    if (C.nz[t] >= lim) continue;
+    const o = t*9, sp = spOf(C.nz[t]);
+    if (!resin && Math.max(pos[o+2], pos[o+5], pos[o+8]) < minZ) continue;   // лежит на столе
+    const tx0 = Math.min(pos[o], pos[o+3], pos[o+6]), tx1 = Math.max(pos[o], pos[o+3], pos[o+6]), ty0 = Math.min(pos[o+1], pos[o+4], pos[o+7]), ty1 = Math.max(pos[o+1], pos[o+4], pos[o+7]);
+    let added = 0;
+    for (let iy = Math.ceil(ty0/sp); iy*sp <= ty1; iy++) for (let ix = Math.ceil(tx0/sp); ix*sp <= tx1; ix++){
+      const x = ix*sp, y = iy*sp, z = C.zAt(t, x, y);
+      if (!Number.isFinite(z) || z < minZ) continue;
+      const key = Math.round(x/sp*1000) + ',' + Math.round(y/sp*1000) + ',' + Math.round(z/(sp*1.5));
+      if (keys.has(key)) continue; keys.add(key); pts.push({ x, y, z, nz: C.nz[t] }); added++;
+    }
+    if (!added && (tx1 - tx0)*(ty1 - ty0) > sp*sp*0.12){
+      const x = (pos[o] + pos[o+3] + pos[o+6])/3, y = (pos[o+1] + pos[o+4] + pos[o+7])/3, z = (pos[o+2] + pos[o+5] + pos[o+8])/3;
+      const key = 'c' + Math.round(x/sp) + ',' + Math.round(y/sp) + ',' + Math.round(z/(sp*1.5));
+      if (z >= minZ && !keys.has(key)){ keys.add(key); pts.push({ x, y, z, nz: C.nz[t] }); }
+    }
+  }
+  return pts;
+}
+/* луч вниз: опора на деталь или на основание; params(pt, h, onModel) → параметры опоры */
+function supPillars(C, pts, base, params){
+  const out = [];
+  for (const p of pts){
+    let best = -Infinity, bestN = 0;
+    for (const h of C.hits(p.x, p.y)) if (h.z < p.z - 0.3 && h.z > best){ best = h.z; bestN = h.nz; }
+    let land = base, onModel = false;
+    if (best > -Infinity){ if (bestN <= 0) continue; if (best > base){ land = best; onModel = true; } }
+    const P = params(p, p.z - land, onModel);
+    if (p.z - land < P.tipL*0.8) continue;
+    out.push({ x:p.x, y:p.y, z:p.z, land, onModel, r:P.r, tip:P.tip, tipL:P.tipL, pad:P.pad, brace:P.brace, kind:P.kind, island:!!p.island });
+  }
+  return out;
 }
 async function buildSupports(type){
   if (!mesh || !mesh.st) return;
-  busy(true, 'Строю поддержки…'); await tick();
+  busy(true, type === 'hybrid' ? 'Подбираю поддержки по месту…' : 'Строю поддержки…'); await tick();
   try {
-    const resin = RESIN.has(S.tech), P = supParams(type, resin), pos = mesh.pos, n = pos.length/9;
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let i = 0; i < pos.length; i += 3){ const x = pos[i], y = pos[i+1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    const lim = -Math.sin(P.thr*Math.PI/180);
-    // нормали, нависающие грани и их площадь в плане — для шага опор
-    const nz = new Float32Array(n); let ovA = 0;
-    for (let t = 0; t < n; t++){
-      const o = t*9, ax = pos[o+3]-pos[o], ay = pos[o+4]-pos[o+1], az = pos[o+5]-pos[o+2], bx = pos[o+6]-pos[o], by = pos[o+7]-pos[o+1], bz = pos[o+8]-pos[o+2];
-      const cx = ay*bz - az*by, cy = az*bx - ax*bz, cz = ax*by - ay*bx, l = Math.hypot(cx, cy, cz) || 1;
-      nz[t] = cz/l;
-      if (nz[t] < lim) ovA += Math.abs(cz)/2;
-    }
-    let sp = P.sp;
-    const MAXP = 6000;
-    if (ovA/(sp*sp) > MAXP) sp *= Math.sqrt(ovA/(sp*sp)/MAXP);
-    // сетка треугольников в плане для лучей вниз
-    const cell = Math.max(2, sp), gx = Math.max(1, Math.ceil((x1 - x0)/cell) + 1), gy = Math.max(1, Math.ceil((y1 - y0)/cell) + 1);
-    const cnt = new Int32Array(gx*gy + 1);
-    const span = t => { const o = t*9; const ax0 = Math.min(pos[o], pos[o+3], pos[o+6]), ax1 = Math.max(pos[o], pos[o+3], pos[o+6]), ay0 = Math.min(pos[o+1], pos[o+4], pos[o+7]), ay1 = Math.max(pos[o+1], pos[o+4], pos[o+7]);
-      return [Math.floor((ax0 - x0)/cell), Math.floor((ax1 - x0)/cell), Math.floor((ay0 - y0)/cell), Math.floor((ay1 - y0)/cell)]; };
-    for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) cnt[j*gx + i + 1]++; }
-    for (let k = 1; k < cnt.length; k++) cnt[k] += cnt[k-1];
-    const fill = cnt.slice(), tris = new Int32Array(cnt[cnt.length-1]);
-    for (let t = 0; t < n; t++){ if (Math.abs(nz[t]) < 1e-4) continue; const [i0,i1,j0,j1] = span(t); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) tris[fill[j*gx + i]++] = t; }
-    // высота грани t над точкой (x, y) или NaN, если точка вне её проекции
-    const zAt = (t, x, y) => {
-      const o = t*9, ax = pos[o], ay = pos[o+1], bx = pos[o+3], by = pos[o+4], cx = pos[o+6], cy = pos[o+7];
-      const d = (by - cy)*(ax - cx) + (cx - bx)*(ay - cy); if (Math.abs(d) < 1e-12) return NaN;
-      const a = ((by - cy)*(x - cx) + (cx - bx)*(y - cy))/d, b = ((cy - ay)*(x - cx) + (ax - cx)*(y - cy))/d, c = 1 - a - b;
-      if (a < -1e-6 || b < -1e-6 || c < -1e-6) return NaN;
-      return a*pos[o+2] + b*pos[o+5] + c*pos[o+8];
-    };
-    // точки опоры
-    const pts = [], keys = new Set(), minZ = resin ? -1 : 0.4;
-    for (let t = 0; t < n && pts.length < MAXP*1.3; t++){
-      if (nz[t] >= lim) continue;
-      const o = t*9;
-      if (!resin && Math.max(pos[o+2], pos[o+5], pos[o+8]) < minZ) continue;   // лежит на столе
-      const tx0 = Math.min(pos[o], pos[o+3], pos[o+6]), tx1 = Math.max(pos[o], pos[o+3], pos[o+6]), ty0 = Math.min(pos[o+1], pos[o+4], pos[o+7]), ty1 = Math.max(pos[o+1], pos[o+4], pos[o+7]);
-      let added = 0;
-      for (let iy = Math.ceil(ty0/sp); iy*sp <= ty1; iy++) for (let ix = Math.ceil(tx0/sp); ix*sp <= tx1; ix++){
-        const x = ix*sp, y = iy*sp, z = zAt(t, x, y);
-        if (!Number.isFinite(z) || z < minZ) continue;
-        const key = ix + ',' + iy + ',' + Math.round(z/(sp*1.5));
-        if (keys.has(key)) continue; keys.add(key); pts.push([x, y, z]); added++;
-      }
-      if (!added && (tx1 - tx0)*(ty1 - ty0) > sp*sp*0.12){
-        const x = (pos[o] + pos[o+3] + pos[o+6])/3, y = (pos[o+1] + pos[o+4] + pos[o+7])/3, z = (pos[o+2] + pos[o+5] + pos[o+8])/3;
-        const key = Math.round(x/sp) + ',' + Math.round(y/sp) + ',' + Math.round(z/(sp*1.5));
-        if (z >= minZ && !keys.has(key)){ keys.add(key); pts.push([x, y, z]); }
-      }
-    }
-    // куда встаёт каждая опора
-    const bedZ = -P.lift, sup = [];
-    for (const [x, y, z] of pts){
-      const i = Math.floor((x - x0)/cell), j = Math.floor((y - y0)/cell);
-      let land = bedZ, onModel = false, inside = false;
-      if (i >= 0 && j >= 0 && i < gx && j < gy){
-        let best = -Infinity, bestN = 0;
-        for (let k = cnt[j*gx + i]; k < cnt[j*gx + i + 1]; k++){
-          const t = tris[k], zz = zAt(t, x, y);
-          if (Number.isFinite(zz) && zz < z - 0.3 && zz > best){ best = zz; bestN = nz[t]; }
-        }
-        if (best > -Infinity){ if (bestN > 0){ land = best; onModel = true; } else inside = true; }
-      }
-      if (inside) continue;
-      if (z - land < P.tipL*0.8) continue;
-      sup.push({ x, y, z, land, onModel });
-    }
-    // геометрия: усечённые конусы между двумя точками
-    const out = []; let vol = 0; const SEG = 6;
-    const cyl = (ax, ay, az, bx, by, bz, r0, r1) => {
-      const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz); if (L < 1e-6) return;
-      const ux = dx/L, uy = dy/L, uz = dz/L;
-      let px = -uy, py = ux, pz = 0; let pl = Math.hypot(px, py, pz); if (pl < 1e-6){ px = 1; py = 0; pz = 0; pl = 1; }
-      px /= pl; py /= pl; pz /= pl;
-      const qx = uy*pz - uz*py, qy = uz*px - ux*pz, qz = ux*py - uy*px;
-      const ring = (cx, cy, cz, r) => { const a = []; for (let s = 0; s < SEG; s++){ const f = s/SEG*Math.PI*2, c = Math.cos(f)*r, si = Math.sin(f)*r; a.push([cx + px*c + qx*si, cy + py*c + qy*si, cz + pz*c + qz*si]); } return a; };
-      const A = ring(ax, ay, az, r0), B = ring(bx, by, bz, r1);
-      for (let s = 0; s < SEG; s++){ const s2 = (s + 1)%SEG; out.push(...A[s], ...B[s], ...B[s2], ...A[s], ...B[s2], ...A[s2]); }
-      for (let s = 1; s < SEG - 1; s++){ out.push(...A[0], ...A[s+1], ...A[s], ...B[0], ...B[s], ...B[s+1]); }
-      vol += Math.PI*L/3*(r0*r0 + r0*r1 + r1*r1);
-    };
-    for (const s of sup){
-      const top = s.z - P.tipL, bot = s.onModel ? s.land + P.tipL*0.7 : bedZ + 0.8;
-      cyl(s.x, s.y, s.z, s.x, s.y, top, P.tip, P.r);                       // касание
-      if (top > bot) cyl(s.x, s.y, top, s.x, s.y, bot, P.r, P.r);          // ствол
-      if (s.onModel) cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, P.r, P.tip);
-      else cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, bedZ, P.r, P.pad); // подошва
-    }
-    // сложные: диагональные связи с ближайшей соседней опорой
-    if (P.brace > 0 && sup.length > 1){
-      const h = new Map(), hk = (x, y) => Math.floor(x/(sp*2.6)) + ',' + Math.floor(y/(sp*2.6));
-      sup.forEach((s, i) => { const k = hk(s.x, s.y); if (!h.has(k)) h.set(k, []); h.get(k).push(i); });
-      const done = new Set();
-      sup.forEach((a, i) => {
-        if (a.onModel) return;
-        let bj = -1, bd = Infinity; const cx = Math.floor(a.x/(sp*2.6)), cy = Math.floor(a.y/(sp*2.6));
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const j of h.get((cx + dx) + ',' + (cy + dy)) || []){
-          if (j === i || sup[j].onModel) continue; const d = Math.hypot(sup[j].x - a.x, sup[j].y - a.y);
-          if (d > 0.5 && d < sp*2.6 && d < bd){ bd = d; bj = j; }
-        }
-        if (bj < 0) return; const key = Math.min(i, bj) + ':' + Math.max(i, bj); if (done.has(key)) return; done.add(key);
-        const b = sup[bj], topZ = Math.min(a.z, b.z) - P.tipL - 1;
-        let up = true;
-        for (let z = bedZ + 2; z + P.brace*0.6 < topZ; z += P.brace){
-          if (up) cyl(a.x, a.y, z, b.x, b.y, z + P.brace*0.6, P.r*0.6, P.r*0.6); else cyl(b.x, b.y, z, a.x, a.y, z + P.brace*0.6, P.r*0.6, P.r*0.6);
-          up = !up;
-        }
+    const resin = RESIN.has(S.tech), C = supCtx(), lv = supLevels(resin), MAXP = 6000;
+    const L = supParams('light', resin), M = supParams('medium', resin), H = supParams('heavy', resin);
+    let pillars, scaleSp = 1;
+    const ovArea = lim => { let a = 0; for (let t = 0; t < C.n; t++) if (C.nz[t] < lim) a += C.ar[t]; return a; };
+    if (type === 'hybrid'){
+      const lim = -Math.sin(M.thr*Math.PI/180), flat = -0.92, a = ovArea(lim);
+      if (a/(M.sp*M.sp) > MAXP) scaleSp = Math.sqrt(a/(M.sp*M.sp)/MAXP);
+      const pts = supPoints(C, lim, nz => (nz < flat ? M.sp : L.sp)*scaleSp, resin, MAXP*1.3);
+      pillars = supPillars(C, pts, lv.base, (p, h, onModel) => {
+        if (onModel) return { ...L, kind:'light' };                     // на детали — тонкие, без следов
+        if (h > 25) return { ...H, tip: p.nz < flat ? M.tip : L.tip, kind:'heavy' }; // высокие — толще и со связями
+        return p.nz < flat ? { ...M, kind:'medium' } : { ...L, kind:'light' };
       });
+    } else {
+      const P = supParams(type, resin), lim = -Math.sin(P.thr*Math.PI/180), a = ovArea(lim);
+      if (a/(P.sp*P.sp) > MAXP) scaleSp = Math.sqrt(a/(P.sp*P.sp)/MAXP);
+      const pts = supPoints(C, lim, () => P.sp*scaleSp, resin, MAXP*1.3);
+      pillars = supPillars(C, pts, lv.base, () => ({ ...P, kind:type }));
     }
-    if (supObj){ modelGroup.remove(supObj); supObj.geometry.dispose(); supObj = null; }
-    supState = { type, resin, n: sup.length, vol, lift: P.lift, ver: mesh.ver, sp };
-    mesh.st.userSup = { type, resin, n: sup.length, vol };
-    if (resin){ if (S.tech === 'sla' || S.tech === 'dlp') S.sla.density = type; S.sla.supports = 'auto'; S.sla.tilt = 0; }
+    const keepIsl = supState ? supState.pillars.filter(p => p.island) : [];
+    supState = { type, resin, pillars: pillars.concat(keepIsl), ver: mesh.ver, scaleSp };
+    if (resin){ if (type !== 'hybrid') S.sla.density = type; S.sla.supports = 'auto'; S.sla.tilt = 0; }
     else S.slicer.supports = 'auto';
-    if (sup.length && typeof THREE !== 'undefined' && modelGroup){
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3)); g.computeVertexNormals();
-      supObj = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: resin ? 0xcdbfe6 : 0xd3d9de, roughness:0.7, metalness:0, side:THREE.DoubleSide }));
-      supObj.position.z = P.lift; modelGroup.add(supObj);
-      if (modelObj) modelObj.position.z = P.lift;
-      needRender = true;
-    }
-    renderSupBtn(); syncInputs(); recalc();
-    toast(sup.length ? `${SUP_NAMES[type]} поддержки: ${nf(sup.length)} опор, ${nf(vol/1000, 2)} см³${sp > P.sp*1.01 ? ` (шаг увеличен до ${nf(sp,1)} мм — модель крупная)` : ''}` : 'Нависаний, которым нужны поддержки, не нашлось');
+    rebuildSupportGeom();
+    const k = supState.kinds;
+    toast(pillars.length ? `${SUP_NAMES[type]} поддержки, опор: ${nf(pillars.length)}${type === 'hybrid' ? ` (лёгких ${k.light || 0}, средних ${k.medium || 0}, сложных ${k.heavy || 0})` : ''}${scaleSp > 1.01 ? `, шаг увеличен ×${nf(scaleSp,1)} — модель крупная` : ''}` : 'Нависаний, которым нужны поддержки, не нашлось');
   } catch(err){ console.error(err); toast('Не получилось построить поддержки: ' + err.message); }
   finally { busy(false); }
 }
+/* ---------- острова: участок слоя, под которым в прошлом слое пусто ---------- */
+async function findIslands(){
+  if (!mesh || !mesh.st) return;
+  busy(true, 'Ищу острова…'); await tick();
+  try {
+    const resin = RESIN.has(S.tech), st = mesh.st;
+    const h = Math.max(resin ? S.sla.layer : S.slicer.layer, 0.1);
+    const R = rasterGrid(st, h, 6e6), { N, dz, res, nx, ny, np, inside } = R;
+    const x0 = -st.dimX/2 - Math.max(1, 2*res), y0 = -st.dimY/2 - Math.max(1, 2*res);
+    const lab = new Int32Array(np), stack = new Int32Array(np), list = [];
+    const minPx = Math.max(2, Math.round(0.15/(res*res)));
+    for (let L = 1; L < N; L++){
+      const b = L*np, pb = b - np; lab.fill(0); let id = 0;
+      for (let s = 0; s < np; s++){
+        if (!inside[b+s] || lab[s]) continue;
+        id++; let sp = 0, cntPx = 0, sx = 0, sy = 0, supported = false; const pix = [];
+        stack[sp++] = s; lab[s] = id;
+        while (sp){
+          const q = stack[--sp], qx = q % nx, qy = (q/nx) | 0; cntPx++; sx += qx; sy += qy;
+          if (pix.length < 4000) pix.push(q);
+          if (!supported){ for (let dy = -1; dy <= 1 && !supported; dy++) for (let dx = -1; dx <= 1; dx++){ const xx = qx + dx, yy = qy + dy; if (xx >= 0 && yy >= 0 && xx < nx && yy < ny && inside[pb + yy*nx + xx]){ supported = true; break; } } }
+          if (qx > 0 && inside[b+q-1] && !lab[q-1]){ lab[q-1] = id; stack[sp++] = q-1; }
+          if (qx < nx-1 && inside[b+q+1] && !lab[q+1]){ lab[q+1] = id; stack[sp++] = q+1; }
+          if (qy > 0 && inside[b+q-nx] && !lab[q-nx]){ lab[q-nx] = id; stack[sp++] = q-nx; }
+          if (qy < ny-1 && inside[b+q+nx] && !lab[q+nx]){ lab[q+nx] = id; stack[sp++] = q+nx; }
+        }
+        if (supported || cntPx < minPx) continue;
+        list.push({ x: x0 + (sx/cntPx + 0.5)*res, y: y0 + (sy/cntPx + 0.5)*res, z: L*dz, area: cntPx*res*res,
+                    pix: pix.map(q => [x0 + (q % nx + 0.5)*res, y0 + (((q/nx) | 0) + 0.5)*res]) });
+      }
+      if (L % 40 === 0) await tick();
+    }
+    supIslands = { ver: mesh.ver, list };
+    drawIslands(); renderSupPanel();
+    toast(list.length ? `Найдено островов: ${list.length}. Они подсвечены красным — можно подпереть их опорами` : 'Островов нет: каждый слой опирается на предыдущий');
+  } catch(err){ console.error(err); toast('Не получилось проверить острова: ' + err.message); }
+  finally { busy(false); }
+}
+function drawIslands(){
+  islObj = removeObj(islObj);
+  if (!supIslands || !supIslands.list.length || typeof THREE === 'undefined' || !modelGroup) return;
+  const st = mesh.st, s = Math.max(0.8, Math.min(4, Math.max(st.dimX, st.dimY, st.dimZ)/60)), v = [];
+  for (const i of supIslands.list){
+    const P = [[i.x + s, i.y, i.z], [i.x - s, i.y, i.z], [i.x, i.y + s, i.z], [i.x, i.y - s, i.z], [i.x, i.y, i.z + s], [i.x, i.y, i.z - s]];
+    const F = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+    for (const f of F) for (const k of f) v.push(...P[k]);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); g.computeVertexNormals();
+  islObj = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color:0xff2d55, depthTest:false, transparent:true, opacity:0.9 }));
+  islObj.renderOrder = 10; islObj.position.z = modelObj ? modelObj.position.z : 0; modelGroup.add(islObj); needRender = true;
+}
+async function supportIslands(type){
+  if (!mesh) return;
+  if (!supIslands || supIslands.ver !== mesh.ver) await findIslands();
+  if (!supIslands || !supIslands.list.length) return;
+  const resin = RESIN.has(S.tech), C = supCtx(), lv = supLevels(resin), P = supParams(type, resin), pts = [];
+  for (const isl of supIslands.list){
+    // касание — на нижней поверхности острова; в большом острове несколько опор по сетке
+    const cand = [[isl.x, isl.y]], sp = P.sp, seen = new Set();
+    for (const [x, y] of isl.pix){ const k = Math.round(x/sp) + ',' + Math.round(y/sp); if (!seen.has(k)){ seen.add(k); if (Math.hypot(x - isl.x, y - isl.y) > sp*0.6) cand.push([x, y]); } }
+    for (const [x, y] of cand.slice(0, 60)){
+      let z = isl.z;
+      for (const h of C.hits(x, y)) if (h.nz < 0 && Math.abs(h.z - isl.z) < Math.max(0.6, S.slicer.layer*2) && h.z < z + 0.6) z = Math.min(z, h.z);
+      pts.push({ x, y, z, nz:-1, island:true });
+    }
+  }
+  const add = supPillars(C, pts, lv.base, () => ({ ...P, kind:type }));
+  if (!supState) supState = { type:'islands', resin, pillars: [], ver: mesh.ver, scaleSp:1 };
+  supState.pillars = supState.pillars.filter(p => !p.island).concat(add);
+  rebuildSupportGeom();
+  toast(`Острова подпёрты, опор: ${nf(add.length)} (${SUP_NAMES[type].toLowerCase()})`);
+}
+/* ---------- геометрия, объём, плот ---------- */
+function rebuildSupportGeom(){
+  if (!supState || !mesh) return;
+  const resin = supState.resin, lv = supLevels(resin), out = []; let vol = 0; const SEG = 6;
+  const cyl = (ax, ay, az, bx, by, bz, r0, r1) => {
+    const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz); if (L < 1e-6) return;
+    const ux = dx/L, uy = dy/L, uz = dz/L;
+    let px = -uy, py = ux, pz = 0, pl = Math.hypot(px, py); if (pl < 1e-6){ px = 1; py = 0; pl = 1; }
+    px /= pl; py /= pl;
+    const qx = uy*pz - uz*py, qy = uz*px - ux*pz, qz = ux*py - uy*px;
+    const ring = (cx, cy, cz, r) => { const a = []; for (let s = 0; s < SEG; s++){ const f = s/SEG*Math.PI*2, c = Math.cos(f)*r, si = Math.sin(f)*r; a.push([cx + px*c + qx*si, cy + py*c + qy*si, cz + pz*c + qz*si]); } return a; };
+    const A = ring(ax, ay, az, r0), B = ring(bx, by, bz, r1);
+    for (let s = 0; s < SEG; s++){ const s2 = (s + 1)%SEG; out.push(...A[s], ...B[s], ...B[s2], ...A[s], ...B[s2], ...A[s2]); }
+    for (let s = 1; s < SEG - 1; s++) out.push(...A[0], ...A[s+1], ...A[s], ...B[0], ...B[s], ...B[s+1]);
+    vol += Math.PI*L/3*(r0*r0 + r0*r1 + r1*r1);
+  };
+  const P = supState.pillars, kinds = {};
+  for (const s of P){
+    kinds[s.kind] = (kinds[s.kind] || 0) + 1;
+    s.land = s.onModel ? s.land : lv.base;          // плот мог смениться
+    const top = s.z - s.tipL, bot = s.onModel ? s.land + s.tipL*0.7 : s.land + (lv.rc.t ? 0.3 : 0.8);
+    cyl(s.x, s.y, s.z, s.x, s.y, top, s.tip, s.r);
+    if (top > bot) cyl(s.x, s.y, top, s.x, s.y, bot, s.r, s.r);
+    if (s.onModel) cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, s.r, s.tip);
+    else cyl(s.x, s.y, Math.min(top, bot), s.x, s.y, s.land, s.r, lv.rc.t ? s.r*1.6 : s.pad);
+  }
+  // связи: ближайшая соседняя опора на основании, перемычки зигзагом
+  const br = P.map((s, i) => i).filter(i => P[i].brace > 0 && !P[i].onModel);
+  if (br.length > 1){
+    const cs = (resin ? 6 : 10)*(supState.scaleSp || 1), hk = (x, y) => Math.floor(x/cs) + ',' + Math.floor(y/cs), h = new Map(), done = new Set();
+    br.forEach(i => { const k = hk(P[i].x, P[i].y); if (!h.has(k)) h.set(k, []); h.get(k).push(i); });
+    for (const i of br){
+      const a = P[i]; let bj = -1, bd = Infinity; const cx = Math.floor(a.x/cs), cy = Math.floor(a.y/cs);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const j of h.get((cx + dx) + ',' + (cy + dy)) || []){
+        if (j === i) continue; const d = Math.hypot(P[j].x - a.x, P[j].y - a.y); if (d > 0.5 && d < cs && d < bd){ bd = d; bj = j; }
+      }
+      if (bj < 0) continue; const key = Math.min(i, bj) + ':' + Math.max(i, bj); if (done.has(key)) continue; done.add(key);
+      const b = P[bj], step = Math.min(a.brace, b.brace), rr = Math.min(a.r, b.r)*0.6, topZ = Math.min(a.z, b.z) - Math.max(a.tipL, b.tipL) - 1;
+      let up = true;
+      for (let z = lv.base + 2; z + step*0.6 < topZ; z += step){ if (up) cyl(a.x, a.y, z, b.x, b.y, z + step*0.6, rr, rr); else cyl(b.x, b.y, z, a.x, a.y, z + step*0.6, rr, rr); up = !up; }
+    }
+  }
+  // плот: выпуклая оболочка опор на основании и дна детали, с запасом по краю
+  let raftV = 0;
+  if (lv.rc.t){
+    const pts = P.filter(s => !s.onModel).map(s => [s.x, s.y]);
+    if (!resin || !pts.length){ const pos = mesh.pos; for (let i = 0; i < pos.length; i += 3) if (pos[i+2] < 0.3) pts.push([pos[i], pos[i+1]]); }
+    const hull = convexHull(pts);
+    if (hull.length >= 3){
+      let cx = 0, cy = 0; hull.forEach(([x, y]) => { cx += x; cy += y; }); cx /= hull.length; cy /= hull.length;
+      const poly = hull.map(([x, y]) => { const d = Math.hypot(x - cx, y - cy) || 1; return [x + (x - cx)/d*lv.rc.m, y + (y - cy)/d*lv.rc.m]; });
+      const z0 = lv.plat, z1 = lv.plat + lv.rc.t; let area = 0;
+      for (let i = 0; i < poly.length; i++){
+        const [ax, ay] = poly[i], [bx, by] = poly[(i + 1)%poly.length]; area += ax*by - bx*ay;
+        out.push(ax, ay, z0, bx, by, z0, bx, by, z1, ax, ay, z0, bx, by, z1, ax, ay, z1);
+        out.push(cx, cy, z1, ax, ay, z1, bx, by, z1, cx, cy, z0, bx, by, z0, ax, ay, z0);
+      }
+      raftV = Math.abs(area)/2*lv.rc.t*lv.rc.fill;
+    }
+  }
+  supObj = removeObj(supObj);
+  supState.kinds = kinds; supState.vol = vol + raftV; supState.raftV = raftV; supState.lift = lv.lift; supState.n = P.length;
+  mesh.st.userSup = { type: supState.type, resin, n: P.length, vol: vol + raftV };
+  if ((P.length || raftV) && typeof THREE !== 'undefined' && modelGroup){
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3)); g.computeVertexNormals();
+    supObj = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: resin ? 0xcdbfe6 : 0xd3d9de, roughness:0.7, metalness:0, side:THREE.DoubleSide }));
+    supObj.position.z = lv.lift; modelGroup.add(supObj);
+  }
+  if (modelObj) modelObj.position.z = lv.lift;
+  if (islObj) islObj.position.z = lv.lift;
+  needRender = true;
+  renderSupPanel(); syncInputs(); recalc();
+}
+function convexHull(pts){
+  if (pts.length < 3) return pts.slice();
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0])*(b[1] - o[1]) - (a[1] - o[1])*(b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p){ while (lo.length >= 2 && cr(lo[lo.length-2], lo[lo.length-1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--){ const q = p[i]; while (up.length >= 2 && cr(up[up.length-2], up[up.length-1], q) <= 0) up.pop(); up.push(q); }
+  up.pop(); lo.pop(); return lo.concat(up);
+}
+function setRaft(k){
+  const g = supGroup(); if (!(k in RAFT[g])) return;
+  S.sup.raft[g] = k;
+  if (g === 'fdm') S.slicer.brim = k === 'brim';
+  if (supState) rebuildSupportGeom(); else { renderSupPanel(); syncInputs(); recalc(); }
+}
+/* ---------- панель ---------- */
+let supEditType = 'medium';
+function renderSupPanel(){
+  const b = $('btnSup'); if (!b) return;
+  const resin = RESIN.has(S.tech), g = supGroup();
+  b.classList.toggle('on', !!supState || !$('supPanel').hidden);
+  b.title = supState ? `Построены: ${SUP_NAMES[supState.type].toLowerCase()}, опор: ${nf(supState.n)}` : 'Поддержки, плот и острова';
+  document.querySelectorAll('#supPanel [data-sup]').forEach(x => x.classList.toggle('on', !!supState && x.dataset.sup === supState.type));
+  $('raftSeg').innerHTML = Object.entries(RAFT[g]).map(([k, v]) => `<button type="button" data-raft="${k}" class="${raftCfg(g).key === k ? 'on' : ''}">${v.l}</button>`).join('');
+  const rc = raftCfg(g);
+  $('raftNote').textContent = rc.t ? `${nf(rc.t,1)} мм${rc.fill < 1 ? `, заполнение ${nf(rc.fill*100)}%` : ''}, запас по краю ${nf(rc.m,1)} мм` : g === 'fdm' && rc.key === 'brim' ? 'Кайма 5 мм вокруг первого слоя' : resin ? 'Опоры стоят прямо на платформе на подошвах' : 'Деталь печатается прямо на столе';
+  const k = supState && supState.kinds || {};
+  $('supInfo').textContent = supState ? `Опор: ${nf(supState.n)}${supState.type === 'hybrid' || Object.keys(k).length > 1 ? ` (${Object.entries(k).map(([a, c]) => SUP_NAMES[a].toLowerCase() + ' ' + c).join(', ')})` : ''} · ${nf(supState.vol/1000, 2)} см³ · ${nf(supState.vol/1000*material().density, 1)} г${supState.raftV ? ` · из них плот ${nf(supState.raftV/1000, 2)} см³` : ''}` : 'Поддержки ещё не построены';
+  const il = supIslands && mesh && supIslands.ver === mesh.ver ? supIslands.list : null;
+  $('islInfo').textContent = !il ? 'Остров — участок, который появляется в слое без опоры снизу. Без поддержки он печатается в воздухе.' : il.length ? `Найдено островов: ${il.length}. Самый нижний — на высоте ${nf(Math.min(...il.map(i => i.z)),1)} мм.` : 'Островов нет.';
+  $('islFix').hidden = !(il && il.length);
+  // параметры выбранного типа
+  document.querySelectorAll('#supEditSeg [data-edit]').forEach(x => x.classList.toggle('on', x.dataset.edit === supEditType));
+  const P = supParams(supEditType, resin), a = document.activeElement;
+  if (!(a && a.dataset && a.dataset.sp != null)){
+    $('supFields').innerHTML = SUP_FIELDS.map(f => `<label class="field"><span class="lbl">${f.l}</span><span class="inp"><input type="number" min="0" step="${f.s}" data-sp="${f.k}" value="${+(f.x2 ? P[f.k]*2 : P[f.k]).toFixed(2)}"><em>${f.u}</em></span><small class="cap">${f.d}</small></label>`).join('')
+      + (resin ? `<label class="field"><span class="lbl">Подъём над платформой</span><span class="inp"><input type="number" min="1" step="0.5" data-sp="lift" value="${+(+S.sup.lift || 5)}"><em>мм</em></span><small class="cap">Высота опор под дном детали</small></label>` : '');
+  }
+}
+function wireSupPanel(){
+  $('supPanel').addEventListener('click', e => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.sup) buildSupports(t.dataset.sup);
+    else if (t.dataset.raft) setRaft(t.dataset.raft);
+    else if (t.dataset.isl) supportIslands(t.dataset.isl);
+    else if (t.dataset.edit){ supEditType = t.dataset.edit; renderSupPanel(); }
+    else if (t.id === 'islFind') findIslands();
+    else if (t.id === 'supClear') clearSupports();
+    else if (t.id === 'supReset'){ const g = supGroup(); delete S.sup.cfg[g][supEditType]; if (g === 'resin') S.sup.lift = 5; renderSupPanel(); save(); toast('Параметры сброшены'); }
+  });
+  $('supPanel').addEventListener('change', e => {
+    const el = e.target; if (el.dataset.sp == null) return;
+    const v = parseFloat(el.value); if (!(v >= 0)) return;
+    const g = supGroup(), f = SUP_FIELDS.find(x => x.k === el.dataset.sp);
+    if (el.dataset.sp === 'lift') S.sup.lift = Math.max(1, v);
+    else { S.sup.cfg[g][supEditType] = { ...(S.sup.cfg[g][supEditType] || {}), [f.k]: f.x2 ? v/2 : v }; }
+    save(); el.blur(); renderSupPanel();
+    if (supState && (supState.type === supEditType || supState.type === 'hybrid' || el.dataset.sp === 'lift')) buildSupports(supState.type);
+  });
+}
+
+/* ======================================================================
+   ПОЗИЦИОНИРОВАНИЕ: повороты на любой угол и подбор положения по цели
+   Перебор ~300 положений (шаг 15°) с быстрой оценкой по треугольникам:
+   площадь нависаний (опоры), высота (время смолы и FDM), площадь на столе.
+   ====================================================================== */
+function rotMat(rx, ry, rz){ return new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ')).elements; }
+function posMetrics(e, thrDeg, resin, sample){
+  // e — элементы Matrix4; z' = e2·x + e6·y + e10·z
+  const p = mesh.pos, n = p.length/9, step = sample || 1, lim = -Math.sin(thrDeg*Math.PI/180);
+  const a = e[2], b = e[6], c = e[10];
+  let zmin = Infinity, zmax = -Infinity;
+  for (let i = 0; i < p.length; i += 3*step){ const z = a*p[i] + b*p[i+1] + c*p[i+2]; if (z < zmin) zmin = z; if (z > zmax) zmax = z; }
+  let ov = 0, base = 0;
+  for (let t = 0; t < n; t += step){
+    const o = t*9;
+    const ux = p[o+3]-p[o], uy = p[o+4]-p[o+1], uz = p[o+5]-p[o+2], vx = p[o+6]-p[o], vy = p[o+7]-p[o+1], vz = p[o+8]-p[o+2];
+    const nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nzz = ux*vy - uy*vx, l = Math.hypot(nx, ny, nzz) || 1;
+    const nz = (a*nx + b*ny + c*nzz)/l, area = l/2;
+    if (nz >= lim) continue;
+    const z0 = a*p[o] + b*p[o+1] + c*p[o+2], z1 = a*p[o+3] + b*p[o+4] + c*p[o+5], z2 = a*p[o+6] + b*p[o+7] + c*p[o+8];
+    const onBed = Math.max(z0, z1, z2) - zmin < 0.3;
+    if (onBed){ base += area*(-nz); if (!resin) continue; }
+    ov += area*(-nz);
+  }
+  return { ov: ov*step, H: zmax - zmin, base: base*step };
+}
+// FDM: деталь должна стоять на столе хотя бы 1 см² — иначе она печатается на ребре или вершине
+const posBasePen = (m, resin) => resin ? 0 : Math.max(0, 100 - m.base)*1e3;
+const POS_GOALS = {
+  sup:   { l:'Меньше поддержек', d:'Минимум площади нависаний — меньше опор, следов и смолы', f: (m, resin) => m.ov + m.H*(resin ? 5 : 10) + posBasePen(m, resin) },
+  low:   { l:'Ниже и быстрее', d:'Минимальная высота — меньше слоёв, быстрее печать', f: (m, resin) => m.H*1000 + m.ov*0.01 + posBasePen(m, resin) },
+  stable:{ l:'Устойчивее на столе', d:'Большая опорная площадь, меньше нависаний', f: m => -m.base*3 + m.ov + m.H*0.2 }
+};
+async function optimizePosition(goal){
+  if (!mesh) return;
+  busy(true, 'Перебираю положения…'); await tick();
+  try {
+    const resin = RESIN.has(S.tech), thr = supParams('medium', resin).thr, G = POS_GOALS[goal];
+    const n = mesh.pos.length/9, sample = Math.max(1, Math.floor(n/60000));
+    const cand = [[0,0,0]];
+    for (let ix = 0; ix < 24; ix++) for (let iy = -6; iy <= 6; iy++) cand.push([ix*Math.PI/12, iy*Math.PI/12, 0]);
+    let best = null, cur = null, k = 0;
+    for (const [rx, ry, rz] of cand){
+      const e = rotMat(rx, ry, rz), m = posMetrics(e, thr, resin, sample), s = G.f(m, resin);
+      if (!cur) cur = { s, m };
+      if (!best || s < best.s - 1e-6) best = { s, e, m, rx, ry };
+      if (++k % 40 === 0) await tick();
+    }
+    busy(false);
+    if (best.s >= cur.s - Math.abs(cur.s)*0.01){ toast('Текущее положение уже лучшее для этой цели'); return; }
+    transformPos(mesh.pos, best.e); await reanalyze();
+    toast(`${G.l}: нависания ${nf(cur.m.ov/100,1)} → ${nf(best.m.ov/100,1)} см², высота ${nf(cur.m.H,1)} → ${nf(best.m.H,1)} мм`);
+  } catch(err){ busy(false); console.error(err); toast('Не получилось подобрать положение: ' + err.message); }
+}
+async function rotateBy(dx, dy, dz){
+  if (!mesh || !(dx || dy || dz)) return;
+  const d = Math.PI/180; transformPos(mesh.pos, rotMat(dx*d, dy*d, dz*d)); await reanalyze(!dx && !dy);
+}
+function renderPosPanel(){
+  if (!mesh || !$('posPanel') || $('posPanel').hidden) return;
+  const resin = RESIN.has(S.tech), m = posMetrics(rotMat(0, 0, 0), supParams('medium', resin).thr, resin, Math.max(1, Math.floor(mesh.pos.length/9/60000)));
+  $('posInfo').textContent = `Сейчас: высота ${nf(m.H,1)} мм · нависания ${nf(m.ov/100,1)} см² · опора на столе ${nf(m.base/100,1)} см²`;
+  $('posGoals').innerHTML = Object.entries(POS_GOALS).map(([k, g]) => `<button type="button" data-goal="${k}" title="${g.d}"><b>${g.l}</b><small>${g.d}</small></button>`).join('')
+    + (resin ? `<button type="button" data-tilt="30" title="Наклон уменьшает площадь слоя и усилие отрыва"><b>Наклон 30° для смолы</b><small>Меньше площадь слоя и отрыв, ровнее поверхности</small></button>` : '');
+}
+function wirePosPanel(){
+  $('posPanel').addEventListener('click', e => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.goal) optimizePosition(t.dataset.goal);
+    else if (t.dataset.tilt) rotateBy(+t.dataset.tilt, 0, 0);
+    else if (t.dataset.step){ const [ax, sg] = t.dataset.step.split(':'), v = (parseFloat($('posStep').value) || 15)*(+sg); rotateBy(ax === 'x' ? v : 0, ax === 'y' ? v : 0, ax === 'z' ? v : 0); }
+    else if (t.id === 'posApply'){ rotateBy(parseFloat($('posX').value) || 0, parseFloat($('posY').value) || 0, parseFloat($('posZ').value) || 0); $('posX').value = $('posY').value = $('posZ').value = 0; }
+  });
+}
+
 /* Масштаб: ползунок показывает новый размер сразу, пересчёт — когда отпустили */
 function renderScalePop(){
   if (!mesh || !$('scalePop')) return;
@@ -2291,14 +2629,14 @@ async function setMesh(pos, name){
   mesh = { pos, name, st, unit:1, scale:1, ver: ++MESH_VER }; orcaErr = null;
   $('unitSel').value = '1'; $('scalePct').value = 100;
   busy(false);
-  drawModel(); fitCam(); renderModelInfo(); renderScalePop();
+  drawModel(); fitCam(); renderModelInfo(); renderScalePop(); renderPosPanel(); renderSupPanel();
 }
 async function reanalyze(keepCam){
   clearSupports(true);
   busy(true); await tick();
   mesh.st = analyzeMesh(mesh.pos); mesh.ver = ++MESH_VER; orcaErr = null;
   busy(false);
-  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc(); renderScalePop();
+  drawModel(); if (!keepCam) fitCam(); renderModelInfo(); recalc(); renderScalePop(); renderPosPanel(); renderSupPanel();
   orcaAutoSlice();
 }
 
@@ -2374,7 +2712,7 @@ async function layFlat(){
 }
 function orientScore(st, pr, mt){
   if (autoPerPlate(st, pr) === 0) return { score: 1e12, label:'' };
-  if (S.tech === 'fdm'){ const e = estimatePart(st, { ...S.slicer, supports:'auto' }, pr, mt, S.massCal.fdm); return { score: e.timeS + e.supGrams*25, label: `${dur(e.timeS)} на деталь, поддержки ${nf(e.supGrams,1)} г` }; }
+  if (S.tech === 'fdm'){ const e = estimatePart(st, { ...S.slicer, supports:'auto' }, effPrinter(pr), mt, S.massCal.fdm); return { score: e.timeS + e.supGrams*25, label: `${dur(e.timeS)} на деталь, поддержки ${nf(e.supGrams,1)} г` }; }
   if (RESIN.has(S.tech)){ const e = estimateSLA(st, { ...S.sla, supports:'auto' }, pr, mt, S.massCal.resin); return { score: e.plateS + e.supMl*30, label: `${dur(e.plateS)} на стол, поддержки ${nf(e.supMl,1)} мл` }; }
   return { score: st.dimZ*1000 + st.dimX*st.dimY/1000, label: `высота ${nf(st.dimZ,1)} мм` };
 }
@@ -2577,12 +2915,12 @@ function renderSummary(){
   if (!inBasket && mesh && autoPerPlate(mesh.st, printer()) === 0) al.push(`<div class="alert bad"><p>Деталь не помещается в выбранный принтер.</p></div>`);
   $('sumAlerts').innerHTML = al.join('');
   $('sumRows').innerHTML = costRowsHTML(r, !inBasket);
-  const rows = [['cost strong','Себестоимость', rub(r.cost)],
-    ['', `Наценка ${m.markup}%${B.discount && m.adjust ? `, ${m.adjust > 0 ? '+' : ''}${m.adjust}%` : ''}${r.rush ? `, срочность +${m.rushPct}%` : ''}${r.minApplied ? ', минимум' : ''}<small class="pro">${rub(r.cost)} × ${nf(1 + m.markup/100,2)}${B.discount && m.adjust ? ` × ${nf(1 + m.adjust/100,2)}` : ''}${r.rush ? ` × ${nf(1 + r.rush,2)}` : ''}${r.minApplied ? ` → минимум ${rub(m.minOrder)}` : ''}</small>`, rub(r.net - r.cost)],
+  const rows = [['cost strong adv','Себестоимость', rub(r.cost)],
+    ['adv', `Наценка ${m.markup}%${B.discount && m.adjust ? `, ${m.adjust > 0 ? '+' : ''}${m.adjust}%` : ''}${r.rush ? `, срочность +${m.rushPct}%` : ''}${r.minApplied ? ', минимум' : ''}<small class="pro">${rub(r.cost)} × ${nf(1 + m.markup/100,2)}${B.discount && m.adjust ? ` × ${nf(1 + m.adjust/100,2)}` : ''}${r.rush ? ` × ${nf(1 + r.rush,2)}` : ''}${r.minApplied ? ` → минимум ${rub(m.minOrder)}` : ''}</small>`, rub(r.net - r.cost)],
     ['strong', B.tax ? 'Выручка без налогов' : 'Выручка', rub(r.net)]];
   if (B.tax) rows.push(['', `Налог ${m.taxRev}%<small class="pro">${rub(r.net)} ÷ (1 − ${m.taxRev}%) − ${rub(r.net)}</small>`, rub(r.taxRev)]);
   if (B.tax && m.vat > 0) rows.push(['', `НДС ${m.vat}%<small class="pro">${rub(r.net + r.taxRev)} × ${m.vat}%</small>`, rub(r.vatAmt)]);
-  rows.push([(r.profit >= 0 ? 'profit' : 'loss') + ' strong', `Прибыль · маржа ${nf(r.margin,1)}%`, (r.profit >= 0 ? '+' : '−') + rub(Math.abs(r.profit))]);
+  rows.push([(r.profit >= 0 ? 'profit' : 'loss') + ' strong adv', `Прибыль · маржа ${nf(r.margin,1)}%`, (r.profit >= 0 ? '+' : '−') + rub(Math.abs(r.profit))]);
   $('sumTotals').innerHTML = rows.map(([c, l, v]) => `<div class="row ${c}"><div class="l">${l}</div><div class="r">${v}</div></div>`).join('');
   if (!inBasket && B.batch){
     const unit1 = orderCost([{ ...cur, qty:1 }], m).client;
@@ -2729,7 +3067,7 @@ function renderTech(){
   if (resinNow) S.resinSub = S.tech;
   document.querySelectorAll('#techMain [data-main]').forEach(b => b.classList.toggle('on', (b.dataset.main === 'resin') === resinNow));
   document.querySelectorAll('#techSub [data-sub]').forEach(b => b.classList.toggle('on', b.dataset.sub === S.tech));
-  const ts = $('techSubNote'); if (ts) ts.textContent = S.tech === 'dlp' ? 'Проектор засвечивает слой целиком: время зависит от высоты, а не от числа деталей.' : 'Лазер обводит каждое сечение: время растёт с площадью и числом деталей. Ванна большая — промышленные детали.';
+  const ts = $('techSubNote'); if (ts) ts.textContent = S.tech === 'lcd' ? 'ЖК-экран засвечивает слой целиком (MSLA): быстро и недорого, время зависит от высоты стола.' : S.tech === 'dlp' ? 'Проектор засвечивает слой целиком: время зависит от высоты, а не от числа деталей.' : 'Лазер обводит каждое сечение: время растёт с площадью и числом деталей. Ванна большая — промышленные детали.';
   $('techSeg').style.setProperty('--i', TECHS.indexOf(S.tech));
   document.querySelectorAll('#techSeg button').forEach(b => { const on = b.dataset.tech === S.tech; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
   document.querySelectorAll('[data-tech]:not(#techSeg button)').forEach(el => el.classList.toggle('tech-off', !el.dataset.tech.split(/\s+/).includes(S.tech)));
@@ -2742,6 +3080,7 @@ function renderTech(){
 function setTech(t, silent){
   if (!TECH[t] || !TECHS.includes(t)) return;
   if (RESIN.has(t) !== RESIN.has(S.tech)) clearSupports(true);
+  setTimeout(() => { renderSupPanel(); renderPosPanel(); }, 0);
   S.tech = t;
   renderTech(); setSource(S.source); renderEquip(); drawBed(); drawModel(); renderModelInfo(); syncInputs(); fitCam();
   if (!silent) recalc();
@@ -2753,7 +3092,21 @@ function setSource(src){
   $('srcModel').hidden = cur !== 'model'; $('srcManual').hidden = cur !== 'manual'; $('srcOrca').hidden = cur !== 'orca';
   if (orca) renderOrca();
 }
+/* Расширенный режим: наценку и скидку можно двигать не дальше допуска от базовой (её задаёт инженер или кнопка типа клиента) */
+function mgrLimits(){ const m = S.money, tol = Math.max(0, +m.mgrTol || 0), base = Number.isFinite(+m.baseMarkup) && m.baseMarkup !== null ? +m.baseMarkup : +m.markup; return { tol, base, lo: Math.max(0, base - tol), hi: base + tol }; }
+function enforceMgr(force){
+  const m = S.money; if (m.baseMarkup === null || m.baseMarkup === undefined) m.baseMarkup = +m.markup;
+  if (S.mode === 'pro'){ m.baseMarkup = +m.markup; return; }
+  const a = document.activeElement, L = mgrLimits(); let hit = false;
+  if (force || !(a && (a.id === 'mk' || a.id === 'adj'))){
+    if (m.markup < L.lo || m.markup > L.hi){ m.markup = Math.min(L.hi, Math.max(L.lo, m.markup)); hit = true; }
+    if (Math.abs(m.adjust) > L.tol){ m.adjust = Math.sign(m.adjust)*L.tol; hit = true; }
+    if (hit){ syncInputs(); toast(`В расширенном режиме наценка — от ${nf(L.lo)} до ${nf(L.hi)}%, скидка/надбавка — не больше ±${nf(L.tol)}%`); }
+  }
+  const lim = $('mkLimit'); if (lim) lim.textContent = `Можно от ${nf(L.lo)} до ${nf(L.hi)}% (±${nf(L.tol)} от ${nf(L.base)}%)`;
+}
 function recalc(){
+  enforceMgr();
   try { lastEst = currentEstimate(); } catch(err){ console.error(err); lastEst = null; }
   if (!useManual()) renderEstimate();
   renderSummary();
@@ -2923,11 +3276,7 @@ function openSettings(){
 const PRINTER_FIELDS = {
   common: [ { k:'name', l:'Название', t:'text', wide:1 }, { g:'Область печати' }, { k:'bedX', l:'X', u:'мм' }, { k:'bedY', l:'Y', u:'мм' }, { k:'bedZ', l:'Z', u:'мм' },
     { g:'Экономика' }, { k:'price', l:'Стоимость', u:'₽', s:1000 }, { k:'life', l:'Окупаемость', u:'ч', s:500 }, { k:'maint', l:'Расходники, ремонт', u:'₽/ч', s:0.5 }, { k:'power', l:'Средняя мощность', u:'Вт', s:5 } ],
-  fdm: [ { k:'warmup', l:'Нагрев на стол', u:'мин', s:0.5 }, { g:'Скорости из профиля слайсера' },
-    { k:'vOuter', l:'Внешний периметр', u:'мм/с' }, { k:'vInner', l:'Внутр. периметры', u:'мм/с' }, { k:'vInfill', l:'Заполнение', u:'мм/с' },
-    { k:'vSolid', l:'Сплошные слои', u:'мм/с' }, { k:'vSupport', l:'Поддержки', u:'мм/с' }, { k:'vFirst', l:'Первый слой', u:'мм/с' },
-    { k:'accel', l:'Ускорение', u:'мм/с²', s:500 }, { k:'maxFlow', l:'Предел потока', u:'мм³/с' }, { k:'tContour', l:'Переезд и откат на контур', u:'с', s:0.05 },
-    { g:'Нависания и мосты' }, { k:'vOv2', l:'Нависание 25–50%', u:'мм/с' }, { k:'vOv3', l:'50–75%', u:'мм/с' }, { k:'vOv4', l:'75–100%', u:'мм/с' }, { k:'vBridge', l:'Мосты', u:'мм/с' } ],
+  fdm: [ { k:'warmup', l:'Нагрев на стол', u:'мин', s:0.5 }, { g:'Движение' }, { k:'accel', l:'Ускорение', u:'мм/с²', s:500 }, { k:'maxFlow', l:'Предел потока', u:'мм³/с' }, { k:'tContour', l:'Переезд и откат на контур', u:'с', s:0.05 } ],
   sla: [ { k:'warmup', l:'Подготовка стола', u:'мин', s:0.5 }, { g:'Лазер' }, { k:'overhead', l:'Отрыв и разравнивание', u:'с/слой', s:0.5 }, { k:'areaRate', l:'Скорость обхода (слой 0.05)', u:'мм²/с', s:1 } ],
   dlp: [ { k:'warmup', l:'Подготовка стола', u:'мин', s:0.5 }, { g:'Засветка из профиля смолы' }, { k:'exp', l:'Засветка слоя', u:'с', s:0.1 }, { k:'bottomExp', l:'Нижние слои', u:'с', s:1 }, { k:'bottomLayers', l:'Нижних слоёв', u:'шт' }, { k:'lift', l:'Подъём и опускание', u:'с/слой', s:0.1 } ],
   sls: [ { k:'warmup', l:'Нагрев камеры', u:'мин', s:5 }, { k:'cool', l:'Охлаждение в станке', u:'мин', s:10 }, { g:'Производительность' }, { k:'recoat', l:'Нанесение слоя', u:'с/слой', s:0.5 }, { k:'scanRate', l:'Спекание', u:'см³/ч', s:5 } ],
@@ -2939,6 +3288,39 @@ const MAT_FIELDS = {
   resin: [ { k:'name', l:'Название', t:'text', wide:1 }, { k:'price', l:'Цена за литр', u:'₽', s:50 }, { k:'density', l:'Плотность', u:'г/мл', s:0.01 }, { k:'expMult', l:'Множитель засветки', u:'×', s:0.05 } ],
   sls: [ { k:'name', l:'Название', t:'text', wide:1 }, { k:'price', l:'Цена за кг', u:'₽', s:100 }, { k:'density', l:'Плотность детали', u:'г/см³', s:0.01 }, { k:'bulk', l:'Насыпная плотность', u:'г/см³', s:0.01 }, { k:'refresh', l:'Освежение порошка', u:'%' } ]
 };
+const SPEED_KEYS = [['vOuter','Внешний периметр',0.6],['vInner','Внутр. периметры',0.85],['vInfill','Заполнение',1],['vSolid','Сплошные слои',0.85],['vSupport','Поддержки',0.6],['vFirst','Первый слой',0.2],
+  ['vOv2','Нависание 25–50%',0.18],['vOv3','Нависание 50–75%',0.12],['vOv4','Нависание 75–100%',0.05],['vBridge','Мосты',0.18]];
+const SPEED_MODES = { detail:{ l:'По линиям', d:'Каждая скорость задаётся вручную, как в профиле слайсера.' },
+  base:{ l:'От базовой', d:'Одна базовая скорость, остальные — по типичным пропорциям: периметр 60%, заполнение 100%, первый слой 20%, нависания 5–18%.' },
+  hybrid:{ l:'Гибрид', d:'Базовая скорость задаёт все линии, а свои значения вписываются только там, где нужно. Пустое поле — авто от базовой.' } };
+const autoSpeed = (base, k) => Math.max(5, Math.round(base*SPEED_KEYS.find(x => x[0] === k)[2]));
+function effPrinter(pr){
+  if (!pr || pr.tech !== 'fdm' || !pr.speedMode || pr.speedMode === 'detail') return pr;
+  const o = { ...pr }, base = +pr.vBase || +pr.vInfill || 200;
+  for (const [k] of SPEED_KEYS) o[k] = pr.speedMode === 'base' ? autoSpeed(base, k) : (pr.vOver && +pr.vOver[k] > 0 ? +pr.vOver[k] : autoSpeed(base, k));
+  return o;
+}
+function speedBlock(pr){
+  const st = { mode: pr.speedMode || 'detail', base: +pr.vBase || +pr.vInfill || 200, detail: {}, over: { ...(pr.vOver || {}) } };
+  for (const [k] of SPEED_KEYS) st.detail[k] = pr[k];
+  const keep = () => {
+    const b = parseFloat($('sp_base').value); if (b > 0) st.base = b;
+    for (const [k] of SPEED_KEYS){ const v = $('sp_' + k).value.trim(); if (st.mode === 'detail' && v !== '') st.detail[k] = Math.max(1, parseFloat(v) || 0); if (st.mode === 'hybrid'){ if (v === '') delete st.over[k]; else st.over[k] = Math.max(1, parseFloat(v) || 0); } }
+  };
+  const render = () => {
+    $('spBlock').innerHTML = `<p class="sub">Скорости</p>
+      <div class="seg" id="spMode">${Object.entries(SPEED_MODES).map(([k, m]) => `<button type="button" data-m="${k}" class="${st.mode === k ? 'on' : ''}">${m.l}</button>`).join('')}</div>
+      <small class="cap">${SPEED_MODES[st.mode].d}</small>
+      <div class="grid"><label class="field"><span class="lbl">Базовая скорость</span><span class="inp"><input id="sp_base" type="number" min="5" step="5" value="${st.base}" ${st.mode === 'detail' ? 'disabled' : ''}><em>мм/с</em></span></label></div>
+      <div class="grid">${SPEED_KEYS.map(([k, l]) => { const a = autoSpeed(st.base, k);
+        const val = st.mode === 'detail' ? st.detail[k] : st.mode === 'base' ? a : (st.over[k] ?? '');
+        return `<label class="field"><span class="lbl">${l}</span><span class="inp"><input id="sp_${k}" type="number" min="1" step="5" value="${val ?? ''}" placeholder="авто ${a}" ${st.mode === 'base' ? 'disabled' : ''}><em>мм/с</em></span></label>`; }).join('')}</div>`;
+    $('spMode').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; keep(); st.mode = b.dataset.m; render(); };
+    $('sp_base').oninput = () => { keep(); SPEED_KEYS.forEach(([k]) => { const el = $('sp_' + k), a = autoSpeed(st.base, k); el.placeholder = 'авто ' + a; if (st.mode === 'base') el.value = a; }); };
+  };
+  render();
+  return () => { keep(); const o = { speedMode: st.mode, vBase: st.base, vOver: { ...st.over } }; if (st.mode === 'detail') Object.assign(o, st.detail); return o; };
+}
 function openDlg(title, body, foot){ $('dlgTitle').textContent = title; $('dlgBody').innerHTML = body; $('dlgFoot').innerHTML = foot; $('dlg').hidden = false; const f = $('dlgBody').querySelector('input'); f && f.focus(); }
 function closeDlg(){ $('dlg').hidden = true; }
 function formHTML(fields, obj){
@@ -2956,11 +3338,13 @@ function openProfile(kind, mode){
   const cur = isP ? printer() : material();
   const obj = mode === 'edit' ? cur : { ...cur, id:null, name:'' };
   const list = isP ? techPrinters() : techMaterials(), all = isP ? S.printers : S.materials;
-  openDlg((mode === 'edit' ? 'Изменить ' : 'Новый ') + (isP ? `принтер ${TECH[tech].name}` : 'материал'), formHTML(fields, obj),
+  openDlg((mode === 'edit' ? 'Изменить ' : 'Новый ') + (isP ? `принтер ${TECH[tech].name}` : 'материал'), formHTML(fields, obj) + (isP && tech === 'fdm' ? '<div id="spBlock" class="sp-block"></div>' : ''),
     `${mode === 'edit' && list.length > 1 ? '<button class="btn danger" type="button" id="dlgDel">Удалить</button>' : ''}<div class="right"><button class="btn" type="button" id="dlgCancel">Отмена</button><button class="btn primary" type="button" id="dlgSave">Сохранить</button></div>`);
   $('dlgCancel').onclick = closeDlg;
+  const readSpeed = isP && tech === 'fdm' ? speedBlock(obj) : null;
   $('dlgSave').onclick = () => {
     const vals = readForm(fields);
+    if (readSpeed) Object.assign(vals, readSpeed());
     if (!vals.name){ toast('Укажите название'); return; }
     if (isP && (!vals.bedX || !vals.bedY || !vals.bedZ)){ toast('Укажите размеры области печати'); return; }
     if (!isP && !vals.density){ toast('Укажите плотность'); return; }
@@ -3003,18 +3387,31 @@ function afterEquipChange(){ renderEquip(); drawBed(); renderModelInfo(); syncIn
    СТАРТ
    ====================================================================== */
 function unlockEng(){
-  S.eng = true; save(); setMode('pro'); toast('Открыт инженерный режим: формулы, разбивка расхода, сверка со слайсером');
+  if (S.eng){ setMode('pro'); return; }
+  openDlg('Инженерный режим', `<p class="hint">Введите пароль.</p><label class="field"><span class="inp"><input id="engPw" type="password" autocomplete="current-password" aria-label="Пароль"></span></label><p class="hint bad-text" id="engErr" hidden>Неверный пароль</p>`,
+    `<div class="right"><button class="btn" type="button" id="dlgCancel">Отмена</button><button class="btn primary" type="button" id="engOk">Открыть</button></div>`);
+  const tryPw = () => { if (phash($('engPw').value) === S.engHash){ closeDlg(); engOpened(); } else { $('engErr').hidden = false; $('engPw').select(); } };
+  $('engOk').onclick = tryPw; $('dlgCancel').onclick = closeDlg;
+  $('engPw').addEventListener('keydown', e => { if (e.key === 'Enter') tryPw(); });
+}
+function engOpened(){
+  S.eng = true; setEngSession(true); save(); setMode('pro'); toast('Открыт инженерный режим: формулы, разбивка расхода, сверка со слайсером');
 }
 function wire(){
   bindInputs();
   
   let taps = [];
   document.querySelector('.brand').addEventListener('click', () => { const now = Date.now(); taps = taps.filter(t => now - t < 2500); taps.push(now); if (taps.length >= 5 && !S.eng){ taps = []; unlockEng(); } });
-  document.addEventListener('keydown', e => { if (e.ctrlKey && e.altKey && (e.key === 'e' || e.key === 'E' || e.code === 'KeyE')){ e.preventDefault(); if (!S.eng) unlockEng(); else { S.eng = false; setMode('adv'); save(); toast('Инженерный режим скрыт'); } } });
+  document.addEventListener('keydown', e => { if (e.ctrlKey && e.altKey && (e.key === 'e' || e.key === 'E' || e.code === 'KeyE')){ e.preventDefault(); if (!S.eng) unlockEng(); else { S.eng = false; setEngSession(false); setMode('adv'); save(); toast('Инженерный режим закрыт'); } } });
   if (/engineer/i.test(location.hash) && !S.eng) setTimeout(unlockEng, 300);
   // кнопки наценки и их настройка
-  $('mkPresets').addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b) return; S.money.markup = +S.money.presets[+b.dataset.mk].v; syncInputs(); recalc(); });
+  $('mkPresets').addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b) return; S.money.markup = S.money.baseMarkup = +S.money.presets[+b.dataset.mk].v; syncInputs(); recalc(); });
+  ['mk','adj'].forEach(id => $(id).addEventListener('change', () => { enforceMgr(true); recalc(); }));
   $('mkEdit').addEventListener('input', e => { const el = e.target, p = S.money.presets[+el.dataset.pre]; if (!p) return; if (el.dataset.f === 'n') p.n = el.value; else { const v = parseFloat(el.value); if (Number.isFinite(v) && v >= 0) p.v = v; } renderPresetsMk(); recalc(); });
+  $('engPwSave').onclick = () => {
+    const a = $('engPwNew').value; if (a.length < 4){ toast('Пароль — не короче 4 символов'); return; }
+    S.engHash = phash(a); store.set('engHash', S.engHash); $('engPwNew').value = ''; save(); toast('Пароль инженерного режима сменён');
+  };
   $('busyNow').onclick = () => { S.money.busyUntil = ''; syncInputs(); recalc(); };
   $('busyAfter').onclick = () => { const d = new Date(+$('busyAfter').dataset.end); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); S.money.busyUntil = d.toISOString().slice(0, 16); syncInputs(); recalc(); toast('Принтер занят до ' + fmtWhen(+$('busyAfter').dataset.end)); };
   $('modeSeg').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b) return; setMode(b.dataset.mode); save(); });
@@ -3038,15 +3435,15 @@ function wire(){
   $('btnFlat').onclick = layFlat; $('btnOrient').onclick = autoOrient; $('btnRepair').onclick = doRepair;
   $('btnOver').onclick = () => { showOver = !showOver; $('btnOver').classList.toggle('on', showOver); drawModel(); };
   $('btnCam').onclick = fitCam;
-  const pops = ['supPop','scalePop'];
-  const togglePop = id => { pops.forEach(p => { const el = $(p); if (el) el.hidden = p === id ? !el.hidden : true; }); if (id === 'scalePop') renderScalePop(); if (id === 'supPop') renderSupBtn(); };
-  $('btnSup').onclick = e => { e.stopPropagation(); togglePop('supPop'); };
-  $('btnScale').onclick = e => { e.stopPropagation(); togglePop('scalePop'); };
-  document.addEventListener('pointerdown', e => { if (!e.target.closest('.pop, #btnSup, #btnScale')) pops.forEach(p => { $(p).hidden = true; }); });
-  $('supPop').addEventListener('click', e => {
-    const b = e.target.closest('[data-sup]'); if (b){ $('supPop').hidden = true; buildSupports(b.dataset.sup); return; }
-    if (e.target.closest('#supClear')){ clearSupports(); $('supPop').hidden = true; }
-  });
+  const panels = ['supPanel','posPanel'];
+  const togglePanel = id => { panels.forEach(p => { $(p).hidden = p === id ? !$(p).hidden : true; }); $('btnPos').classList.toggle('on', !$('posPanel').hidden); renderSupPanel(); renderPosPanel(); };
+  $('btnSup').onclick = () => togglePanel('supPanel');
+  $('btnPos').onclick = () => togglePanel('posPanel');
+  document.querySelectorAll('[data-close]').forEach(b => { b.onclick = () => togglePanel(b.dataset.close); });
+  $('btnFlat2').onclick = layFlat;
+  wireSupPanel(); wirePosPanel();
+  $('btnScale').onclick = e => { e.stopPropagation(); $('scalePop').hidden = !$('scalePop').hidden; renderScalePop(); };
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#scalePop, #btnScale')) $('scalePop').hidden = true; });
   $('scaleRange').addEventListener('input', e => {
     if (!mesh) return; const v = +e.target.value, k = v/(mesh.scale*100);
     if (modelObj) modelObj.scale.setScalar(k); if (supObj) supObj.scale.setScalar(k); needRender = true;
@@ -3129,6 +3526,7 @@ const CAPS = {
   'money.hoursPerDay':'Сколько часов в сутки реально печатаете — для срока в днях.',
   'money.deadline':'Срок клиента. Пусто — без срока.', 'money.busyUntil':'Когда принтер освободится от других заказов.', 'money.start':'Пусто — как только принтер свободен. Влияет на ночной тариф.',
   'money.rushPct':'Включается сама, если успеть можно только вне очереди.',
+  'money.mgrTol':'Насколько в «Расширенном» можно сдвинуть наценку и скидку.',
   'sla.layer':'Промышленный SLA обычно 0,1 мм; тоньше — глаже, но дольше.', 'sla.supports':'На платформе — только для плоских деталей без нависаний.',
   'sla.density':'Сложные — для тяжёлых и крупных деталей, связи между опорами.', 'sla.tilt':'Наклон уменьшает площадь слоя и отрыв, но добавляет опор.',
   'sla.wall':'Полая деталь экономит смолу; нужны дренажные отверстия.', 'sla.washMin':'Мойка в спирте и УФ-дозасветка — на каждый стол.', 'sla.washCost':'Спирт, перчатки, фильтры — на каждый стол.'
