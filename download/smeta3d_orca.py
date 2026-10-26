@@ -6,15 +6,14 @@
 # name = "Smeta 3D"
 # description = "Смета 3D-печати: цена и себестоимость каждой нарезки и каждой модели, прямо в панели рядом с 3D-видом. Читает только G-code предпросмотра Orca."
 # author = "artemalv"
-# version = "1.5.0"
+# version = "1.4.2"
 # ///
 """Смета 3D-печати — плагин для OrcaSlicer 2.5+.
 
 После каждой нарезки плагин читает временный G-code, который Orca пишет для предпросмотра
 (папка orcaslicer_model во временной папке системы), берёт из него вес, время, пластик и
-принтер и показывает смету в панели. Ставки берутся с сайта «Смета 3D» (тот же файл rates.dat, что у калькулятора; читает страница
-панели, у самого плагина сети нет). Без сайта ставки принтера и цена пластика запоминаются
-отдельно для каждого профиля Orca.
+принтер и показывает смету в панели. Ставки принтера (амортизация, мощность, нагрев)
+и цена пластика запоминаются отдельно для каждого профиля Orca.
 
   Orca --SlicingJobComplete--> plugin.refresh() --panel.post(state)--> страница
   страница --postMessage({command:'save', settings})--> plugin (конфиг возможности в Orca)
@@ -33,8 +32,6 @@ SETTINGS_FILE = "settings.json"
 
 DEFAULT_SETTINGS = {
     "auto_open": True,
-    "useSite": True,    # ставки, принтеры и цены пластика — с сайта «Смета 3D» (читает страница панели)
-    "site": None,       # последние ставки с сайта: работают и без интернета
     "printers": {},     # имя профиля принтера Orca -> ставки
     "filaments": {},    # имя профиля пластика Orca -> {"price": ₽/кг, "from_orca": bool}
     "printer_default": {"price": 75000, "life": 6000, "maint": 12, "power": 130, "extraMin": 0},
@@ -560,10 +557,6 @@ PAGE = r"""
   .mdl{cursor:pointer;border-radius:4px} .mdl.hl{background:rgba(0,150,136,.14);outline:1px solid var(--accent)}
   .heat{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--muted)} .heat i{flex:1;height:5px;border-radius:3px;background:linear-gradient(90deg,#2aa198,#e0a63b,#e2566e)}
   textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.08);color:var(--fg);font:11.5px/1.45 var(--mono);padding:6px;resize:vertical}
-  .site{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);margin:0 0 8px}
-  .site .st{color:var(--muted);flex:1;min-width:120px} .site .st.bad{color:var(--warn)}
-  .site-note{font-size:11px;color:var(--muted)}
-  input:disabled{opacity:.7;cursor:not-allowed}
 </style>
 
 <div class="status" id="status"><span class="dot"></span><span class="txt" id="statusTxt">Жду данные от Orca…</span><button type="button" class="icon" id="refresh" title="Перечитать последнюю нарезку">↻</button></div>
@@ -582,7 +575,6 @@ PAGE = r"""
 </div>
 
 <div id="main" hidden>
-<div class="site" id="siteBox"><label class="chk"><input type="checkbox" id="useSite"> Ставки с сайта «Смета 3D»</label><span class="st" id="siteSt"></span><button type="button" class="icon" id="siteRef" title="Обновить ставки с сайта">↻</button></div>
 <details data-sec="models" id="secModels" hidden><summary>По моделям <small id="sModels"></small></summary><div class="body" style="gap:4px">
   <div class="mhead"><span>модель · вес и время на 1 шт</span><span>цена за 1 шт</span></div>
   <svg class="map" id="plateMap" role="img" aria-label="Карта стола: цвет — цена детали"></svg>
@@ -675,64 +667,10 @@ PAGE = r"""
   function clone(o){ return JSON.parse(JSON.stringify(o)); }
 
   function fils(){ return (slice && slice.filaments) || []; }
-  /* ---------- ставки с сайта: тот же файл, что у калькулятора на сайте; сеть только у страницы панели, без разрешений Orca */
-  var RK = 'smeta3d·rates', SITE_URLS = ['https://raw.githubusercontent.com/NeroArtNuar/smeta3d/main/rates.dat', 'https://raw.githubusercontent.com/NeroArtNuar/smeta3d/main/rates.default.dat'];
-  var SITE_MONEY = ['minOrder','taxRev','vat','rate','setupMin','plateMin','kwh','twoRate','kwhNight','nightFrom','nightTo','risk','waste','rushPct','presets','insertPrice','cadRate'];
-  var siteBusy = false, siteErr = '';
-  function decRates(t){ var s = atob(String(t).trim()), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) ^ (RK.charCodeAt(i % RK.length) & 255); return JSON.parse(new TextDecoder().decode(b)); }
-  function siteOn(){ return !!(S && S.useSite !== false && S.site && S.site.money); }
-  function M(){ if (!siteOn()) return S.money; var o = {}, k; for (k in S.money) o[k] = S.money[k]; SITE_MONEY.forEach(function(k){ if (S.site.money[k] !== undefined) o[k] = S.site.money[k]; }); return o; }
-  function words(s){ return ' ' + String(s || '').toLowerCase().replace(/[^0-9a-zа-яё]+/g, ' ').trim() + ' '; }
-  /** принтер сайта для профиля Orca: совпадает модель с цифрами (d600, k1) и не меньше половины слов названия */
-  function sitePrinter(){
-    if (!siteOn()) return null; var w = words(prKey() + ' ' + ((slice && slice.model) || '')), best = null, bs = 0;
-    (S.site.printers || []).forEach(function(p){
-      var t = words(p.name).trim().split(' ').filter(function(x){ return x.length >= 2; }); if (!t.length) return;
-      var hit = t.filter(function(x){ return w.indexOf(' ' + x + ' ') >= 0; }), num = hit.some(function(x){ return /\d/.test(x); }), sc = hit.length / t.length;
-      if (num && sc >= 0.5 && sc > bs){ bs = sc; best = p; }
-    });
-    return best;
-  }
-  var MAT_ALIAS = { pacf:'pa6cf', pa12cf:'pa6cf', pa6cf:'pa6cf', paht:'pa6cf', pahtcf:'pa6cf', nylon:'pa', pa6:'pa', pa12:'pa', pcabs:'pc', tpu95a:'tpu95a', tpu:'tpu95a', flex:'tpu95a' };
-  function siteMat(f){
-    if (!siteOn() || !f) return null; var ty = String(f.type || '').toLowerCase().replace(/[^0-9a-z]+/g, ''); if (!ty) return null;
-    var key = MAT_ALIAS[ty] || ty, matte = /matte|матов/i.test(f.name || ''), list = (S.site.materials || []).map(function(m){ return { m:m, n:String(m.name).toLowerCase().replace(/\(.*?\)/g, '').replace(/[^0-9a-z]+/g, '') }; });
-    var pick = function(fn){ var c = list.filter(fn).sort(function(a, b){ return a.n.length - b.n.length; }); return c.length ? c[0].m : null; };
-    return pick(function(x){ return x.n === key + (matte ? 'matte' : ''); }) || pick(function(x){ return x.n === key; }) || pick(function(x){ return x.n.indexOf(key) === 0; });
-  }
-  function siteFetch(force){
-    if (siteBusy || !S || S.useSite === false) return;
-    if (!force && S.site && S.site.got && nowMs() - S.site.got < 6 * 3600e3) return;
-    if (typeof fetch !== 'function'){ siteErr = 'нет доступа к сети'; renderSite(); return; }
-    siteBusy = true; siteErr = ''; renderSite();
-    var i = 0;
-    (function next(){
-      if (i >= SITE_URLS.length){ siteBusy = false; siteErr = 'сайт недоступен'; renderSite(); render(); return; }
-      var u = SITE_URLS[i++], first = i === 1;
-      fetch(u + '?t=' + Math.floor(Date.now() / 60000), { cache:'no-store' }).then(function(r){ if (!r.ok) throw new Error(r.status); return r.text(); }).then(function(t){
-        var f = decRates(t); if (!f || !f.money) throw new Error('bad');
-        var prevMk = S.site && S.site.money ? S.site.money.markup : null;
-        S.site = { got:Date.now(), at:f.at || null, own:first, money:f.money,
-          printers:(f.printers || []).filter(function(p){ return (p.tech || 'fdm') === 'fdm'; }).map(function(p){ return { name:p.name, price:+p.price, life:+p.life, maint:+p.maint, power:+p.power, chamberPower:+p.chamberPower || 0, chamberMin:+p.chamberMin || 0 }; }),
-          materials:(f.materials || []).filter(function(m){ return (m.tech || 'fdm') === 'fdm'; }).map(function(m){ return { name:m.name, price:+m.price }; }) };
-        if (f.money.markup != null && +f.money.markup !== +prevMk) S.money.markup = +f.money.markup;   // наценка сайта — по умолчанию, кнопки клиентов работают как раньше
-        siteBusy = false; siteErr = ''; render(); save();
-      }).catch(next);
-    })();
-  }
-  function fmtD(t){ var d = new Date(t); return d.toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' }); }
-  function renderSite(){
-    if (!S || !$('siteBox')) return; var on = S.useSite !== false, st = $('siteSt'), sp = sitePrinter();
-    $('useSite').checked = on; $('siteRef').hidden = !on; st.classList.toggle('bad', !!siteErr && on);
-    st.textContent = !on ? 'свои ставки' : siteBusy ? 'обновляю…' : siteErr ? (S.site ? siteErr + ', ставки от ' + fmtD(S.site.at || S.site.got) : siteErr + ' — считаю по своим ставкам')
-      : S.site ? (S.site.own ? 'от ' + fmtD(S.site.at || S.site.got) : 'стандартные ставки сайта') + (slice ? (sp ? ' · ' + sp.name : ' · этого принтера нет на сайте — свои ставки принтера') : '') : '';
-  }
-  var SITE_PR = ['pr.price','pr.life','pr.maint','pr.power','pr.chamberPower','pr.chamberMin'];
-  function siteKey(k){ return siteOn() && (SITE_MONEY.indexOf(k.replace(/^money\./, '')) >= 0 && k.indexOf('money.') === 0 || (SITE_PR.indexOf(k) >= 0 && !!sitePrinter())); }
   /* готовые ставки для известных принтеров — подставляются, пока вы не поменяли их сами */
   var PRESETS = [
-    { re:/d600\s*pro\s*3?\s*hs|d600\s*pro3/i, name:'CreatBot D600 Pro3 HS', note:'ставки вашей мастерской, как на сайте',
-      v:{ price:1000000, life:20000, maint:50, power:450, chamberPower:1200, extraMin:10, chamberMin:25 } },
+    { re:/d600\s*pro\s*3?\s*hs|d600\s*pro3/i, name:'CreatBot D600 Pro3 HS', note:'цена принтера примерная (≈ 17 000 € в Европе) — поставьте свою',
+      v:{ price:2000000, life:15000, maint:60, power:900, chamberPower:1200, extraMin:10, chamberMin:25 } },
     { re:/k1\s*max/i, name:'Creality K1 Max', note:'ставки примерные', v:{ price:85000, life:5000, maint:15, power:300, chamberPower:0, extraMin:3, chamberMin:0 } },
     { re:/x1\s*-?\s*carbon|x1c|x1e/i, name:'Bambu Lab X1', note:'ставки примерные', v:{ price:150000, life:6000, maint:20, power:200, chamberPower:0, extraMin:2, chamberMin:0 } },
     { re:/p1s|p1p/i, name:'Bambu Lab P1', note:'ставки примерные', v:{ price:75000, life:5000, maint:15, power:150, chamberPower:0, extraMin:2, chamberMin:0 } },
@@ -741,24 +679,18 @@ PAGE = r"""
   function presetFor(k){ var t = k + ' ' + ((slice && slice.model) || ''); for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].re.test(t)) return PRESETS[i]; return null; }
   function plainDefault(p){ var d = S.printer_default; return ['price','life','maint','power'].every(function(k){ return +p[k] === +d[k]; }); }
   function prKey(){ return (slice && slice.printer) || 'Принтер по умолчанию'; }
-  function prOwn(){
+  function prObj(){
     var k = prKey(), p = S.printers[k], ps = presetFor(k);
     if (!p || (ps && !p.preset && plainDefault(p))){ p = S.printers[k] = ps ? clone(ps.v) : clone(S.printer_default); if (ps) p.preset = ps.name; }
     if (ps) for (var key in ps.v) if (p[key] == null) p[key] = ps.v[key];   // свои ставки не трогаем, дополняем только пустые поля
     if (p.extraMin == null) p.extraMin = 0; if (p.chamberPower == null) p.chamberPower = 0; if (p.chamberMin == null) p.chamberMin = 0;
     return p;
   }
-  function prObj(){
-    var p = prOwn(), sp = sitePrinter(); if (!sp) return p;
-    var o = {}, k; for (k in p) o[k] = p[k];
-    o.price = sp.price; o.life = sp.life; o.maint = sp.maint; o.power = sp.power; o.chamberPower = sp.chamberPower; o.chamberMin = sp.chamberMin; o.siteName = sp.name;
-    return o;
-  }
   function chamberOn(){ return !!(slice && slice.chamberC > 0); }
   function filObj(name){ if (!S.filaments[name]) S.filaments[name] = clone(S.filament_default); return S.filaments[name]; }
-  function filPrice(f){ var sm = siteMat(f); if (sm) return +sm.price || 0; var o = filObj(f.name); return (o.from_orca && f.orcaPrice > 0) ? f.orcaPrice : (+o.price || 0); }
-  function getK(k){ var p = k.split('.'), o = p[0] === 'pr' ? prObj() : p[0] === 'money' ? M() : S[p[0]]; return o[p[1]]; }
-  function setK(k, v){ if (siteKey(k)) return; var p = k.split('.'), o = p[0] === 'pr' ? prOwn() : S[p[0]]; o[p[1]] = v; }
+  function filPrice(f){ var o = filObj(f.name); return (o.from_orca && f.orcaPrice > 0) ? f.orcaPrice : (+o.price || 0); }
+  function getK(k){ var p = k.split('.'), o = p[0] === 'pr' ? prObj() : S[p[0]]; return o[p[1]]; }
+  function setK(k, v){ var p = k.split('.'), o = p[0] === 'pr' ? prObj() : S[p[0]]; o[p[1]] = v; }
   /* на столе разные модели → заказ считается комплектами: 1 комплект = всё, что лежит на столе */
   function many(){ return !!(slice && slice.objects && slice.objects.length > 1); }
   function setPcs(){ return many() ? Math.max(1, autoParts) : 1; }
@@ -778,12 +710,12 @@ PAGE = r"""
   /* печать начинается сейчас — время старта нужно только для ночного тарифа; сроки и срочность считаются на сайте */
   function plan(hours){ var now = nowMs(); return { start:now, end:now + hours * 3600e3, mode:'none', dl:null, busy:null }; }
   function nightShare(start, hours){
-    var m = M(); if (!m.twoRate || hours <= 0) return 0;
+    var m = S.money; if (!m.twoRate || hours <= 0) return 0;
     var a = (+m.nightFrom || 0) % 24, b = (+m.nightTo || 0) % 24, steps = 600, n = 0, dt = hours * 3600e3 / steps;
     for (var i = 0; i < steps; i++){ var h = new Date(start + (i + 0.5) * dt); h = h.getHours() + h.getMinutes() / 60; if (a < b ? (h >= a && h < b) : (h >= a || h < b)) n++; }
     return n / steps;
   }
-  function presets(){ if (siteOn() && Array.isArray(S.site.money.presets) && S.site.money.presets.length) return S.site.money.presets; var p = S.money.presets; if (!Array.isArray(p) || !p.length) p = S.money.presets = [{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }]; return p; }
+  function presets(){ var p = S.money.presets; if (!Array.isArray(p) || !p.length) p = S.money.presets = [{ n:'Розница', v:100 }, { n:'Опт', v:50 }, { n:'Свои', v:30 }]; return p; }
 
   function job(q, n){
     var list = objs(), per, machineS, plates, gSlot = fils().map(function(){ return 0; }), pcs;
@@ -802,7 +734,7 @@ PAGE = r"""
     return { per:per, machineS:machineS, plates:plates, gSlot:gSlot, pcs:pcs };
   }
   function calc(qty){
-    var m = M(), pr = prObj(), n = parts(), q = Math.max(1, Math.round(qty || 1));
+    var m = S.money, pr = prObj(), n = parts(), q = Math.max(1, Math.round(qty || 1));
     var J = job(q, n), plates = J.plates, share = q / n, waste = 1 + (+m.waste || 0) / 100, ch = chamberOn();
     var machineH = J.machineS / 3600 + plates * ((+pr.extraMin || 0) + (ch ? +pr.chamberMin || 0 : 0)) / 60;
     var mat = 0, gNet = 0, gTot = 0, perFil = [];
@@ -912,12 +844,9 @@ PAGE = r"""
     var dimNow = status === 'stale' || status === 'slicing';
     $('hero').classList.toggle('dim', dimNow); $('modelList').classList.toggle('dim', dimNow);
     var keys = prKey() + '|' + fils().map(function(f){ return f.name; }).join('|'), force = keys !== lastKeys; lastKeys = keys;
-    renderSite();
-    document.querySelectorAll('[data-k]').forEach(function(el){ el.disabled = siteKey(el.dataset.k); el.title = el.disabled ? 'Задаётся на сайте «Смета 3D» в режиме «Бизнес»' : ''; });
-    document.querySelectorAll('[data-quick]').forEach(function(box){ var dis = siteKey(box.dataset.quick); box.querySelectorAll('button').forEach(function(b){ b.disabled = dis; }); });
     document.querySelectorAll('[data-k]').forEach(function(el){ if (force || document.activeElement !== el){ var v = getK(el.dataset.k); if (el.type === 'checkbox') el.checked = !!v; else el.value = (el.id === 'parts' && !v) ? '' : (v == null ? '' : v); } });
     document.querySelectorAll('[data-quick]').forEach(function(box){ var v = getK(box.dataset.quick); box.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', +b.dataset.v === +v); }); });
-    var r = calc(S.order.qty), m = M();
+    var r = calc(S.order.qty), m = S.money;
     // главный блок
     $('total').textContent = rub(r.client);
     var ready = (r.plan.mode !== 'none' || r.plan.busy) ? ' · готово ' + fmtT(r.plan.end) : '';
@@ -961,10 +890,10 @@ PAGE = r"""
     $('sOrder').textContent = r.q + ' ' + U() + ' · наценка ' + (m.markup || 0) + '%';
     // пластики
     var fl = $('filList'); fl.innerHTML = r.perFil.map(function(x, i){
-      var o = filObj(x.f.name), sm = siteMat(x.f), canOrca = x.f.orcaPrice > 0 && !sm;
+      var o = filObj(x.f.name), canOrca = x.f.orcaPrice > 0;
       return '<div class="fil"><div class="hd"><span class="nm" title="' + esc(x.f.name) + '">' + (fils().length > 1 ? x.f.slot + '. ' : '') + esc(short(x.f.name)) + '</span><span class="g">' + grams(x.g) + (r.q > 1 || r.n > 1 ? '' : '') + '</span></div>' +
-        '<div class="row2"><span class="inp"><input type="text" inputmode="decimal" data-fil="' + i + '" value="' + (sm ? +sm.price : o.from_orca && canOrca ? x.f.orcaPrice : (+o.price || 0)) + '"' + (sm || (o.from_orca && canOrca) ? ' disabled' : '') + ' aria-label="Цена пластика ' + esc(short(x.f.name)) + '"><em>₽/кг</em></span><span class="sum2">' + rub(x.cost) + '</span></div>' +
-        (sm ? '<span class="site-note">цена с сайта: ' + esc(sm.name) + '</span>' : '') + (canOrca ? '<label class="chk"><input type="checkbox" data-filorca="' + i + '"' + (o.from_orca ? ' checked' : '') + '> цена из профиля Orca: ' + nf(x.f.orcaPrice, 2) + '</label>' : '') + '</div>';
+        '<div class="row2"><span class="inp"><input type="text" inputmode="decimal" data-fil="' + i + '" value="' + (o.from_orca && canOrca ? x.f.orcaPrice : (+o.price || 0)) + '"' + (o.from_orca && canOrca ? ' disabled' : '') + ' aria-label="Цена пластика ' + esc(short(x.f.name)) + '"><em>₽/кг</em></span><span class="sum2">' + rub(x.cost) + '</span></div>' +
+        (canOrca ? '<label class="chk"><input type="checkbox" data-filorca="' + i + '"' + (o.from_orca ? ' checked' : '') + '> цена из профиля Orca: ' + nf(x.f.orcaPrice, 2) + '</label>' : '') + '</div>';
     }).join('');
     $('sFil').textContent = rub(r.mat);
     $('wasteHint').textContent = slice.changes > 0 ? 'Продувка при смене пластика (' + slice.changes + ' смен) уже входит в вес Orca.' : '';
@@ -989,7 +918,7 @@ PAGE = r"""
     $('fChP').hidden = $('fChM').hidden = !(ch || +prx.chamberPower > 0);
     $('prHint').textContent = 'Ставки запоминаются для профиля «' + prKey() + '». Время станка ' + dur(r.machineH * 3600) + ' = время Orca + ' + ((+prx.extraMin || 0) + (ch ? +prx.chamberMin || 0 : 0)) + ' мин на стол. Мощность ' + nf(r.watts, 0) + ' Вт' + (ch ? ' (камера ' + nf(slice.chamberC, 0) + ' °C)' : ', камера не греется') + '.';
     var ps = presetFor(prKey());
-    $('prPreset').textContent = prx.siteName ? 'Ставки принтера с сайта: ' + prx.siteName + '. Меняются на сайте в режиме «Бизнес». Доп. минуты на стол — здесь.' : prx.preset ? 'Ставки из готового профиля ' + prx.preset + (ps && ps.note ? ': ' + ps.note : '') + '.' : '';
+    $('prPreset').textContent = prx.preset ? 'Ставки из готового профиля ' + prx.preset + (ps && ps.note ? ': ' + ps.note : '') + '.' : '';
     $('sWork').textContent = rub(r.labor + r.extra);
     $('sTax').textContent = (m.taxRev || 0) + '%' + (+m.vat ? ' + НДС ' + m.vat + '%' : '') + (+m.adjust ? ' · ' + (m.adjust > 0 ? '+' : '') + m.adjust + '%' : '');
     maybeNotify(r);
@@ -1010,7 +939,7 @@ PAGE = r"""
     if (r.q > 1) L.push('Цена за 1 ' + U() + ': ' + rub(r.client / r.q));
     L.push('Итого: ' + rub(r.client));
     if (r.plan.mode !== 'none' || r.plan.busy) L.push('Срок готовности: ' + fmtT(r.plan.end) + (r.rush ? ' (срочный заказ)' : ''));
-    if (r.vatAmt > 0.005) L.push('В том числе НДС ' + M().vat + '%: ' + rub(r.vatAmt));
+    if (r.vatAmt > 0.005) L.push('В том числе НДС ' + S.money.vat + '%: ' + rub(r.vatAmt));
     L.push('', many() ? 'Цена комплекта при другом тираже:' : 'Цена за штуку при другом тираже:');
     [1, 5, 10, 25, 50, 100].forEach(function(q){ if (q !== r.q){ var o = calc(q); L.push('  ' + q + ' ' + U() + ' — ' + rub(o.client / q) + ' за ' + U() + ', всего ' + rub(o.client)); } });
     return L.join('\n');
@@ -1032,7 +961,6 @@ PAGE = r"""
   });
   document.addEventListener('change', function(e){
     var el = e.target;
-    if (el.id === 'useSite'){ S.useSite = el.checked; if (el.checked) siteFetch(true); render(); save(); return; }
     if (el.id === 'kitOn'){ S.order.kit = el.checked; if (el.checked && !Object.keys(S.order.need || {}).length) fillFromNames(); render(); save(); return; }
     if (el.dataset && el.dataset.filorca != null){ var f = fils()[+el.dataset.filorca]; if (f){ filObj(f.name).from_orca = el.checked; render(); save(); } return; }
     if (el.dataset && el.dataset.k && el.type === 'number'){ var v = getK(el.dataset.k); if (el.id !== 'parts' || v) el.value = v; }
@@ -1056,11 +984,10 @@ PAGE = r"""
     if (mk){ S.money.markup = +presets()[+mk.dataset.mk].v; render(); save(); return; }
     var mm = e.target.closest ? e.target.closest('[data-m]') : null;
     if (mm && !(e.target.dataset && e.target.dataset.need != null)){ highlight(+mm.dataset.m, mm.tagName.toLowerCase() === 'rect'); return; }
-    if (e.target.id === 'busyNow'){ prOwn().busyUntil = ''; render(); save(); return; }
-    if (e.target.id === 'busyAfter'){ var d = new Date(+e.target.dataset.end); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); prOwn().busyUntil = d.toISOString().slice(0, 16); render(); save(); return; }
+    if (e.target.id === 'busyNow'){ prObj().busyUntil = ''; render(); save(); return; }
+    if (e.target.id === 'busyAfter'){ var d = new Date(+e.target.dataset.end); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); prObj().busyUntil = d.toISOString().slice(0, 16); render(); save(); return; }
     if (e.target.id === 'kitNames'){ fillFromNames(true); render(); save(); return; }
     if (e.target.id === 'refresh') bridge.postMessage({ command:'refresh' });
-    if (e.target.id === 'siteRef'){ siteFetch(true); return; }
   });
   bridge.onMessage(function(msg){
     if (!msg || msg.command !== 'state') return;
@@ -1071,9 +998,9 @@ PAGE = r"""
     slice = msg.slice || null; autoParts = Math.max(1, msg.parts || 1);
     if (slice && slice.objects && slice.objects.length) autoParts = slice.objects.reduce(function(a, o){ return a + (o.copies || 1); }, 0);
     if (!S.ui.modelsSeen){ S.ui.modelsSeen = true; S.ui.open = (S.ui.open || []).concat(['models']); } err = msg.error || null; status = msg.status || (slice ? 'fresh' : 'none'); staleReason = msg.staleReason || '';
-    render(); siteFetch(false);
+    render();
   });
-  window.__smeta = { plan: function(h){ return plan(h); }, calc: function(q){ return calc(q); }, byModel: function(q){ return byModel(calc(q)); }, state: function(){ return { S:S, slice:slice, parts:parts(), status:status, site:siteOn(), sitePrinter:sitePrinter() }; } };
+  window.__smeta = { plan: function(h){ return plan(h); }, calc: function(q){ return calc(q); }, byModel: function(q){ return byModel(calc(q)); }, state: function(){ return { S:S, slice:slice, parts:parts(), status:status }; } };
   bridge.postMessage({ command:'hello' });
 })();
 </script>
