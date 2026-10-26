@@ -62,6 +62,10 @@ body.money .cli{display:none!important}
 .card,.sum{border-top:3px solid var(--accent)}
 .card-h,.sum-h{background:linear-gradient(90deg,var(--accent-soft),transparent 75%)}
 .card-h h2,.sum-h h2{color:var(--accent)}
+:root[data-theme="light"] .card-h,:root[data-theme="light"] .sum-h{background:linear-gradient(90deg,hsl(var(--h) 68% 84%) 0%,hsl(calc(var(--h) + 30) 64% 89%) 45%,hsl(calc(var(--h) + 60) 60% 95%) 100%);border-bottom-color:hsl(var(--h) 45% 80%)}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .card-h,:root:not([data-theme="dark"]) .sum-h{background:linear-gradient(90deg,hsl(var(--h) 68% 84%) 0%,hsl(calc(var(--h) + 30) 64% 89%) 45%,hsl(calc(var(--h) + 60) 60% 95%) 100%);border-bottom-color:hsl(var(--h) 45% 80%)}}
+:root[data-theme="light"] .card-h h2,:root[data-theme="light"] .sum-h h2{color:hsl(var(--h) 60% 24%)}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .card-h h2,:root:not([data-theme="dark"]) .sum-h h2{color:hsl(var(--h) 60% 24%)}}
 :root[data-pal="grad"] .brand svg rect{fill:url(#palGrad)}
 .tech2 button{font-weight:600;min-width:52px}
 .tech2 button.on,#techSub button.on{background:var(--accent);color:var(--on-accent)}
